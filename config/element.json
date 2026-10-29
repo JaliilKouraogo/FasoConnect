@@ -17,8 +17,8 @@
   },
   "default_server_config": {
     "m.homeserver": {
-      "base_url": "https://fasoconnect.example.org",
-      "server_name": "fasoconnect.example.org"
+      "base_url": "https://localhost",
+      "server_name": "localhost"
     }
   }
 }

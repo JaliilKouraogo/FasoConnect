@@ -1,0 +1,78 @@
+{
+  "realm": "fasoconnect",
+  "enabled": true,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "sslRequired": "external",
+  "browserFlow": "faso-browser",
+  "roles": {
+    "realm": [
+      {
+        "name": "agent"
+      },
+      {
+        "name": "responsable"
+      },
+      {
+        "name": "administrateur"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "synapse",
+      "secret": "${OIDC_SECRET}",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "https://${DOMAIN}/_synapse/client/oidc/callback"
+      ],
+      "webOrigins": []
+    }
+  ],
+  "authenticationFlows": [
+    {
+      "alias": "faso-browser",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "faso-forms",
+          "requirement": "REQUIRED",
+          "priority": 10
+        }
+      ]
+    },
+    {
+      "alias": "faso-forms",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20
+        }
+      ]
+    }
+  ]
+}

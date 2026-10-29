@@ -15,3 +15,5 @@ Leurs dépendances et distributions de base conservent leurs notices respectives
 - https://spec.matrix.org/latest/client-server-api/ : événements chiffrés et pièces jointes chiffrées côté client ; les clés de fichiers circulent dans le contenu chiffré.
 - https://www.keycloak.org/docs/latest/server_admin/index.html : OTP conditionnel ne signifie pas OTP obligatoire. Exiger et tester un flux sans contournement avant intégration.
 La compatibilité documentaire ne remplace pas un test d'intégration. Les tags Docker et leurs licences embarquées doivent encore être inspectés après téléchargement.
+
+Keycloak 26.8.1, Apache-2.0, image amont non modifi�e : https://github.com/keycloak/keycloak ; documentation : https://www.keycloak.org/server/containers .

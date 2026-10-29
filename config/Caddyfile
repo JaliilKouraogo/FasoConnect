@@ -6,8 +6,11 @@
     Cache-Control "no-store"
     -Server
   }
-  @forbidden path /_matrix/federation/* /_matrix/key/* /_synapse/admin/*
+  @forbidden path /_matrix/federation/* /_matrix/key/* /_synapse/admin/* /auth/admin/* /auth/realms/master/*
   respond @forbidden 403
+  handle /auth/* {
+    reverse_proxy identity:8080
+  }
   handle /_matrix/* {
     reverse_proxy synapse:8008
   }
@@ -18,3 +21,4 @@
     reverse_proxy element:80
   }
 }
+
