@@ -16,3 +16,7 @@ dist/
 local.settings.json
 work/
 *.gpg
+etat-final-local.json
+*.key
+*.p12
+*.pfx

@@ -27,7 +27,9 @@ with tempfile.TemporaryDirectory(prefix='faso-backup-',dir=scratch) as tmp:
     else:
         if len(password_file.read_text(encoding='utf-8').strip())<16:raise SystemExit('Phrase secrète trop courte')
     gpg_home=work/'gnupg';gpg_home.mkdir()
-    gpg_base=[gpg,'--homedir',str(gpg_home),'--batch','--yes','--pinentry-mode','loopback','--passphrase-file',str(password_file.resolve())]
+    gpg_home_arg=gpg_home.resolve().as_posix()
+    if os.name=='nt' and 'git/usr/bin' in pathlib.Path(gpg).as_posix().lower():gpg_home_arg='/'+gpg_home_arg[0].lower()+gpg_home_arg[2:]
+    gpg_base=[gpg,'--homedir',gpg_home_arg,'--batch','--yes','--pinentry-mode','loopback','--passphrase-file',str(password_file.resolve())]
     if options.action=='create':
         if options.archive.exists():raise SystemExit('Archive existante : choisir un nouveau nom')
         options.archive.parent.mkdir(parents=True,exist_ok=True)

@@ -21,7 +21,7 @@ Les sources originales de ce projet sont AGPL-3.0-or-later. Les bibliothèques e
 | Prettier | 3.6.2 | MIT | https://github.com/prettier/prettier |
 | Element Web, référence facultative non exposée | 1.12.32 | AGPL-3.0, option libre retenue | https://github.com/element-hq/element-web |
 | PyOTP, recette uniquement | 2.9.0 | MIT | https://github.com/pyauth/pyotp |
-| GnuPG, opération de sauvegarde | binaire local fourni avec Git, non redistribué | GPL, notices du binaire | https://gnupg.org/ |
+| GnuPG, opération de sauvegarde | 2.4.9 local fourni avec Git, non redistribué | GPL, notices du binaire | https://gnupg.org/ |
 
 Les lockfiles figent les dépendances transitives. Conserver leurs notices et celles des distributions de base. Lors d’une redistribution d’images, fournir les sources correspondantes et mentions selon leurs obligations ; ce fichier ne remplace pas leurs licences. GnuPG est appelé localement, pas incorporé au serveur de messagerie.
 
@@ -39,3 +39,4 @@ Les lockfiles figent les dépendances transitives. Conserver leurs notices et ce
 - Node 22.22.3 : https://nodejs.org/en/blog/release/v22.22.3
 
 Les tags Docker ont été téléchargés et les services exécutés. La compatibilité documentaire ne constitue pas un audit. L’AGPL des sources originales est compatible avec les bibliothèques Apache-2.0/MIT utilisées ; les services distincts conservent leurs licences.
+

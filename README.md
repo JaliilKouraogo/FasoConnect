@@ -1,24 +1,75 @@
-# FasoConnect — Hackathon 226, édition 2026
+# FasoConnect — Messagerie administrative chiffrée
+
+[![Licence : AGPL v3 ou ultérieure](https://img.shields.io/badge/licence-AGPL--3.0--or--later-blue)](LICENSE)
+
+FasoConnect est un prototype de messagerie administrative pour le Hackathon 226, édition 2026. Il associe un client web français, une console d’administration et des services locaux Matrix, Keycloak et PostgreSQL.
 
 Messagerie administrative fictive pour le Burkina Faso. **Niveau : Créer** : client TypeScript et console originaux, sur Matrix et son chiffrement officiel. Prototype de concours, sans certification de sécurité.
 
-## Démonstration locale
+## Fonctionnalités
+
+- Connexion avec mot de passe et code TOTP, enrôlement contrôlé et rôles agent, responsable et administrateur.
+- Conversations privées, groupes sur invitation, annuaire et vérification des appareils.
+- Messages et pièces jointes chiffrés de bout en bout avec les bibliothèques officielles Matrix.
+- Instructions de service avec accusés de prise de connaissance chiffrés.
+- Révocation d’un agent ou d’un appareil, blocage des anciens salons et création de conversations de remplacement.
+- Application web installable, sauvegarde chiffrée et journal d’administration.
+
+## Installer une nouvelle instance locale
+
+Prérequis : Git, Docker avec Docker Compose et Python 3. Les commandes suivantes utilisent PowerShell. Node.js est nécessaire uniquement pour développer et lancer les tests JavaScript hors des conteneurs ; GnuPG est requis pour les sauvegardes chiffrées.
+
+```powershell
+git clone https://github.com/JaliilKouraogo/FasoConnect.git
+cd FasoConnect
+python scripts/configure.py --domain localhost --private-dir "$env:USERPROFILE\Documents\Codex\FasoConnect-prive"
+$cfg = Get-Content local.settings.json -Raw | ConvertFrom-Json
+$env:COMPOSE_ENV_FILES = Join-Path $cfg.privateDirectory '.env'
+docker compose --env-file $env:COMPOSE_ENV_FILES up -d --build
+```
+
+Le client est accessible sur https://localhost/service/ et l’administration sur https://localhost/admin/. L’instance écoute uniquement sur cet ordinateur : HTTPS 443 et redirection HTTP 8088. Docker télécharge les images et les paquets pendant l’installation.
+
+Le navigateur doit faire confiance à l’autorité de certificat locale Caddy. Suivre le [guide de déploiement](docs/DEPLOIEMENT.md) pour exporter et approuver son certificat public sur la machine de test. Ne pas ignorer une alerte de certificat.
+
+Pour créer volontairement les comptes fictifs de démonstration après le démarrage :
+
+```powershell
+python scripts/demo.py
+```
+
+Les accès sont générés dans le dossier privé. Aucun mot de passe ou secret TOTP n’est livré dans ce dépôt. La première connexion impose un changement de mot de passe et la configuration d’une application d’authentification. Ne pas utiliser les comptes fictifs pour des données réelles.
+
+## Instance de démonstration déjà préparée
 
 Ouvrir https://localhost/service/ ou https://localhost/admin/. Le projet est dans **FasoConnect sur le Bureau** ; raccourcis FasoConnect.url et Administration.url. Pour redémarrer, exécuter Demarrer.ps1.
 
 Le Bureau est dans OneDrive : les secrets et accès fictifs restent dans `Documents/Codex/FasoConnect-prive`. local.settings.json indique ce dossier sans contenir de secret. L’autorité TLS locale a été approuvée dans le profil Windows avec votre accord.
 
-## Installation vierge
+Les chemins et l’état des comptes décrits dans la documentation de recette concernent cette instance précise ; une nouvelle installation génère ses propres secrets et comptes.
+
+## Documentation
+
+| Sujet | Guide |
+|---|---|
+| Architecture et composants | [Architecture](docs/ARCHITECTURE.md) |
+| Installation, comptes et HTTPS | [Déploiement](docs/DEPLOIEMENT.md) |
+| Chiffrement et limites | [Sécurité](docs/SECURITE.md) |
+| Révocation des accès | [Révocation](docs/REVOCATION.md) |
+| Sauvegarde et restauration | [Sauvegarde](docs/SAUVEGARDE_RESTAURATION.md) |
+| Scénarios de démonstration | [Démonstration](docs/DEMO_JURY.md) |
+| Tests réellement effectués | [Vérification](docs/VERIFICATION.md) |
+
+## Vérifier le code
 
 ```powershell
-python scripts/configure.py --domain localhost
-$cfg = Get-Content local.settings.json -Raw | ConvertFrom-Json
-$env:COMPOSE_ENV_FILES = Join-Path $cfg.privateDirectory '.env'
-docker compose up -d --build
-python scripts/demo.py
+npm ci --prefix client
+npm run --prefix client check
+node --test admin/revocation.test.mjs tests/instructions.test.mjs
+python scripts/check.py
 ```
 
-La dernière commande crée volontairement les seuls comptes fictifs et impose changement du mot de passe et TOTP. Elle est séparée pour ne pas installer automatiquement des comptes de concours sur un hébergement réel. Ne jamais ignorer les alertes de certificat. Voir docs/DEPLOIEMENT.md.
+Les tests d’intégration nécessitent une instance locale et des comptes fictifs. Ils peuvent révoquer ces comptes ; lire le [guide de recette](docs/DEMO_JURY.md) avant de les lancer.
 
 ## Fonctions
 
@@ -35,3 +86,9 @@ Aucun effacement distant garanti, blocage universel des captures, valeur juridiq
 ## Technologies et licences
 
 Matrix JS SDK 44.0.0 / Rust crypto WASM 18.9.0, Synapse 1.161.0, Keycloak 26.8.1, PostgreSQL 17.11, Caddy 2.10.2 et Node 22.22.3. Sources originales AGPL-3.0-or-later ; licences amont conservées dans THIRD_PARTY_NOTICES.md. Aucun CDN, fournisseur d’identité, email, SMS ou analytique externe. Téléchargements à l’installation ; services et PKI entièrement locaux à l’exécution.
+
+Le texte complet de la licence du projet est dans [LICENSE](LICENSE). Les composants tiers conservent leurs propres licences ; leur inventaire et leurs sources sont dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Les images Docker et les dépendances ne sont pas redistribuées dans ce dépôt.
+
+## Contribuer et signaler un problème
+
+Décrire le scénario, le résultat attendu et le résultat observé dans une issue. Pour proposer une correction, ouvrir une pull request avec les vérifications effectuées. Ne jamais publier de mot de passe, code TOTP, jeton, clé privée, sauvegarde ou message réel dans une issue ou une capture d’écran.
