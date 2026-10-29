@@ -1,12 +1,35 @@
-# Déploiement
-Suivre README.md. Le nom Matrix est immuable ; l'initialisation refuse son changement. Les secrets sont générés dans le volume Synapse, les paramètres sont régénérés à chaque lancement. Ne pas changer le mot de passe PostgreSQL dans .env sans migration de la base.
-Les certificats publics nécessitent DNS, réseau et ACME. Pour un réseau isolé, monter un certificat et sa clé dans Caddy et configurer `tls /certs/fullchain.pem /certs/key.pem` ; installer l'autorité sur chaque appareil. Ne jamais désactiver la vérification TLS.
-Le réseau interne empêche la sortie de Synapse ; aucun port 8448 n'est publié. Le proxy refuse les routes de fédération et d'administration. Vérifier ces refus depuis un autre appareil.
-Aucun compte de démonstration activé. Identités réservées pour les futurs essais : agent.alpha, agent.beta, responsable.gamma, admin.delta, ministère fictif de la Simulation. Aucun mot de passe distribué. L'activation locale et les invitations temporaires restent à développer après TOTP obligatoire.
+# Déploiement local et souverain
 
-## Configuration locale actuelle
-https://localhost sert Element. HTTP redirige depuis le port 8088. Le certificat public de l'autorité locale peut être exporté :
-`docker compose cp proxy:/data/caddy/pki/authorities/local/root.crt local-ca.crt`
-Importer cette autorité dans le magasin de confiance du profil de test avant d'utiliser le navigateur. Ne pas ignorer une alerte de certificat. Ne jamais exporter ni partager la clé privée de l'autorité.
-`python scripts/demo.py` crée les quatre identités fictives de manière idempotente. Le fichier local .demo-activation.json contient les mots de passe temporaires ; exclu de Git. À la première connexion, changer le mot de passe et configurer TOTP avec une application locale compatible. Aucun SMS ou email requis. Les secrets de démonstration ne sont pas des invitations avec expiration : cette exigence reste à implémenter.
-Les rôles attribués dans Keycloak ne sont pas encore propagés à une console administrative applicative.
+## Instance actuelle
+
+Code : dossier FasoConnect du Bureau. Secrets et fixtures : `C:\Users\koura\Documents\Codex\FasoConnect-prive`, hors OneDrive. local.settings.json ne contient que ce chemin. Bases, médias et clés serveur sont dans les volumes Docker.
+
+Exécuter Demarrer.ps1 puis ouvrir https://localhost/service/ ou https://localhost/admin/. HTTPS 443, HTTP de redirection 8088, écoute 127.0.0.1. L’autre application utilisant le port 80 n’a pas été interrompue. Aucun port serveur interne publié.
+
+L’autorité Caddy a été approuvée dans le profil Windows avec accord explicite. Sur une autre machine, exporter `proxy:/data/caddy/pki/authorities/local/root.crt`, vérifier puis installer cette autorité dans le profil de test. Ne jamais distribuer sa clé privée ni ignorer une alerte TLS. Renouvellement local de la PKI, sans ACME public indispensable.
+
+## Installation vierge
+
+```powershell
+python scripts/configure.py --domain localhost --private-dir "$env:USERPROFILE\Documents\Codex\FasoConnect-prive"
+$cfg = Get-Content local.settings.json -Raw | ConvertFrom-Json
+$env:COMPOSE_ENV_FILES = Join-Path $cfg.privateDirectory '.env'
+docker compose up -d --build
+python scripts/demo.py
+```
+
+Configuration idempotente : aucun secret remplacé, nom Matrix immuable. Ne pas changer un mot de passe PostgreSQL d’un volume existant dans .env sans migration de la base. Le profil facultatif reference-client contient Element non exposé ; le client principal est original. Appels audio/vidéo et édition des avatars hors périmètre de ce prototype.
+
+## Comptes fictifs
+
+Comptes initiaux : agent.alpha, agent.beta, responsable.gamma, admin.delta. La recette a configuré TOTP et changé les mots de passe. Le fichier privé .demo-activation.json contient `password` si présent, sinon `temporary_password`, et `totp_secret` pour importer le facteur dans une application locale. Ces secrets sont fictifs mais ne doivent pas être synchronisés ou committés.
+
+Alpha est volontairement révoqué après la recette. Admin.delta peut le réautoriser après réauthentification ; nouveau mot de passe et nouveau TOTP sont imposés. Beta reste actif ; un appareil de recette a été révoqué. Les comptes agent.recette… proviennent des essais. Aucun compte de démonstration ne dispose de connexion Matrix par mot de passe.
+
+Nouvel agent : la console remet un code et un mot de passe temporaire ; saisir le code sur https://localhost/activate sous quinze minutes, une fois. Puis changer le mot de passe et configurer TOTP. Aucun SMS/email.
+
+## Plusieurs appareils et souveraineté
+
+Choisir le nom définitif avant initialisation, un DNS interne et une adresse d’écoute adaptée ; distribuer l’autorité de confiance aux appareils autorisés. localhost désigne chaque appareil lui-même : cette instance locale ne permet pas une connexion directe depuis un téléphone distant. La PWA exige un contexte HTTPS de confiance et le support du navigateur.
+
+Images et paquets sont téléchargés pendant installation/construction. Tous les services indispensables et la PKI sont locaux à l’exécution. Conserver un registre/cache local pour installer hors ligne. Sauvegarder les volumes avant mise à jour ; voir SAUVEGARDE_RESTAURATION.md.

@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-29",
+  "tests_unitaires_politique": 8,
+  "tests_unitaires_revocation_instructions": 6,
+  "controles_statiques": 4,
+  "typescript": "pass",
+  "agent": {
+    "appareils": 2,
+    "elapsed_ms": 591,
+    "sync": "401",
+    "medias": "401",
+    "anciens_appareils_decryptage": "echec_attendu",
+    "membres_restants": "echanges_confirmes"
+  },
+  "appareil_perdu": {
+    "elapsedMs": 1149,
+    "roomCount": 3,
+    "sessionRejected": true,
+    "accountRemainsEnabled": true
+  },
+  "stockages": "temoins_absents",
+  "reconnexion_reelle": "meme_event_id",
+  "restauration_bases_isolees": "pass",
+  "mobile_physique": "non_qualifie"
+}

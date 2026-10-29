@@ -1,23 +1,44 @@
-# Recette et état des preuves
-`python scripts/check.py` vérifie seulement quatre invariants de configuration ; il ne prouve ni chiffrement ni sécurité d'exécution.
-`docker compose config --quiet` valide la structure après configuration de .env. `docker compose ps` et `docker compose logs` servent au diagnostic, à conserver sans secrets.
+# Recette et démonstration
 
-Toutes les épreuves fonctionnelles ci-dessous restent NON EXÉCUTÉES :
-| Épreuve | Scénario reproductible après implémentation |
+Uniquement les comptes fictifs. Les fixtures privées sont dans le dossier indiqué par local.settings.json, jamais dans Git ni sur le Bureau. Les tests d’intégration révoquent réellement les comptes/appareils fictifs ciblés. Préparer de nouveaux appareils SSO avant de rejouer un moteur cryptographique en mémoire : ne pas réutiliser un ancien device_id sans son magasin de clés.
+
+## Vérifications courantes
+
+```powershell
+npm ci --prefix client
+npm run --prefix client check
+node --test admin/revocation.test.mjs tests/instructions.test.mjs
+python scripts/check.py
+python scripts/test_storage.py
+```
+
+Politique serveur : copier scripts/test_policy.py vers /tmp/test_policy.py dans Synapse puis exécuter `docker compose exec -T synapse python /tmp/test_policy.py`. Les commandes Docker emploient le .env privé via COMPOSE_ENV_FILES ou --env-file.
+
+| Épreuve | Scénario et preuve |
 |---|---|
-| 1 Communication | Enrôler alpha/beta, imposer TOTP, vérifier appareils, échanger un texte unique |
-| 2 Groupe/fichier | Salon privé chiffré, inviter beta, envoyer fichier témoin et comparer son empreinte après déchiffrement |
-| 3 Stockages | Chercher les témoins dans export DB, médias et logs ; compléter par inspection des événements et du client |
-| 4 Transfert | Inspecter upload réseau : octets distincts du fichier, clé uniquement dans événement chiffré |
-| 5 Enrôlement | Compte inconnu refusé ; inscription et invités refusés |
-| 6 Invitations | Tenter join sans invitation : refus |
-| 7 TOTP | Tester absence OTP, mauvais OTP, récupération, login direct Matrix et anciens jetons |
-| 8 Révocation | Alpha sur deux appareils : révoquer ; anciens jetons sync et médias refusés |
-| 9 Clés | Durant révocation envoyer en concurrence, renouveler tous les émetteurs ; alpha ne reçoit et ne déchiffre aucun message après barrière effective |
-| 10 Rôles | Agent appelant administration : 403 ; réauthentification administrateur |
-| 11 Instruction | Responsable publie, beta accuse ; imposture, doublon et non-destinataire refusés |
-| 12 Reconnexion | Couper le réseau lors de l'envoi, reprendre : un seul événement logique |
-| 13 Persistance | Redémarrer Compose et vérifier comptes, historique et déchiffrement |
-| 14 Responsive | Parcours sur ordinateur et mobile réel, clavier et lecteur d'écran |
+| 1 Deux agents | test_sso_full.py : activation/TOTP ; e2e.mjs : message reçu/déchiffré avec SDK/Rust crypto |
+| 2 Groupe/fichier | Trois participants, fichier chiffré, déchiffrement local identique |
+| 3 Stockages | test_storage.py : témoins absents du dump, médias et logs ; complément au test cryptographique |
+| 4 Transfert | e2e.mjs : octets média différents, retour aux octets d’origine par déchiffrement standard |
+| 5 Non enrôlé | access-control.mjs : invités et mot de passe local refusés ; inscription Keycloak fermée |
+| 6 Invitations | Adhésion sans invitation 403 ; groupe créé par un agent refusé |
+| 7 TOTP | Connexions complètes avec TOTP ; mot de passe initial seul sans jeton ; code d’activation incorrect/réutilisé refusé |
+| 8 Révocation / deux appareils | e2e.mjs : les deux jetons reçoivent 401 à sync et aux médias |
+| 9 Nouvelles clés | Membres restants échangent dans le successeur ; les deux anciens moteurs ne déchiffrent pas l’événement obtenu hors bande |
+| 10 Rôles | API anonyme 401 ; rôle responsable à la console 403 ; réauthentification exigée pour une mutation |
+| 11 Innovation | Instruction/accusé chiffrés ; tests refusent imposteur, mauvais salon/référence, destinataires dupliqués |
+| 12 Reconnexion | reconnection.mjs : coupure réelle du proxy, retry même transaction, même event_id |
+| 13 Persistance | Arrêt/redémarrage de sauvegarde, mise à jour PostgreSQL, données conservées ; restauration isolée des deux bases |
+| 14 Interface | Connexion, annuaire, invitation et refus avant vérification observés ; mobiles physiques/accessibilité exhaustive non qualifiés |
 
-Révocation : mesurer t0 demande, t1 coupure authentification, t2 invalidation de tous jetons, t3 exclusions, t4 renouvellement confirmé par chaque émetteur. Ne déclarer effective qu'après la barrière définie et tests ; toute étape en échec reste visible et bloque la réussite. Ce protocole reste à implémenter.
+## Rejouer l’intégration
+
+Le driver scripts/test_sso_full.py utilise le certificat public /trust/root.crt et PyOTP 2.9.0. Il active les seuls comptes fictifs et utilise de vrais codes TOTP, sans contournement. Les secrets de recette sont conservés localement et retirés des conteneurs en fin d’essai.
+
+Les fixtures de sessions alimentent les scripts Node, avec NODE_EXTRA_CA_CERTS pointant vers local-ca.crt. L’administrateur doit être fraîchement authentifié avant e2e.mjs, lost-device.mjs, enrollment.mjs ou reauthorize.mjs. Alpha est révoqué à la fin d’e2e.mjs ; lost-device.mjs conserve le compte beta actif. enrollment.mjs vérifie le code unique de quinze minutes. access-control.mjs utilise la nouvelle identité. reconnection.mjs nécessite une nouvelle session de cet agent sur un appareil neuf.
+
+Les scripts de test sont accompagnés de fixtures locales propres à cette machine ; ils ne constituent pas encore un lanceur universel de recette vierge. Synthèse sans secrets : PREUVES_RECETTE.json. Mesures locales, sans SLA : 591 ms agent, 1 149 ms appareil.
+
+## Parcours manuel
+
+Deux profils distincts : beta et gamma, TOTP, invitations puis comparaison des clés par un canal indépendant. Envoyer texte/fichier. Un nouvel appareil bloque les envois jusqu’à vérification. Gamma publie une instruction, beta confirme. Un troisième profil administrateur révoque un agent/appareil ; accepter les successeurs et constater les refus des anciens jetons. Les clés d’historique ne sont disponibles que si un appareil les a conservées ; les magasins éphémères des tests ne sont pas des sauvegardes.

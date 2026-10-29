@@ -1,24 +1,37 @@
-# FasoConnect â€” Hackathon 226, Ã©dition 2026
-Niveau visÃ© : **Ã‰tendre et adapter**. Socle technique incomplet, aucune certification de sÃ©curitÃ©.
-Messagerie administrative souveraine reposant sur Element Web et Matrix Synapse. Le chiffrement des salons et piÃ¨ces jointes est fourni par le client amont ; il nâ€™est pas encore imposÃ© par ce projet.
-
-## Installation
-PrÃ©requis : Docker Compose, domaine DNS et ports 80/443 accessibles. Copier `.env.example` vers `.env`, dÃ©finir DOMAIN et un secret PostgreSQL alÃ©atoire (32 caractÃ¨res minimum). Exécuter `python scripts/configure.py --domain votre.domaine` pour générer les secrets et configurer le client (avant de créer .env). OIDC_SECRET, IDENTITY_DB_PASSWORD et IDENTITY_ADMIN_PASSWORD sont obligatoires.
-
-```sh
-docker compose up -d --build
-docker compose ps
-python scripts/check.py
-```
-Ouvrir `https://VOTRE_DOMAINE`. Caddy demande un certificat public avec validation normale. Les images sont tÃ©lÃ©chargÃ©es Ã  lâ€™installation. Le renouvellement ACME dÃ©pend Ã©galement dâ€™une autoritÃ© externe ; un dÃ©ploiement souverain doit fournir ses propres certificats et remplacer la configuration TLS. Aucun CDN nâ€™est configurÃ©.
-
-## Ã‰tat et limites
-Le socle sert le client et les API ; les connexions sont fermÃ©es volontairement : inscription, invitÃ©s et mots de passe dÃ©sactivÃ©s. Aucun compte de dÃ©monstration ne contourne le second facteur. Annuaire, rÃ´les institutionnels, console administrative, rÃ©vocation globale, contrÃ´le exclusif du chiffrement et innovation ne sont pas encore implÃ©mentÃ©s. Ne pas ouvrir les connexions pour une dÃ©monstration prÃ©sentÃ©e comme conforme.
-
-Element apporte les conversations, fichiers et vÃ©rification dâ€™appareils ; ces parcours restent Ã  valider sur cette instance. La PWA, le mobile et les appels ne sont pas validÃ©s. Les donnÃ©es reÃ§ues par un appareil hors ligne restent potentiellement accessibles.
-
-## Technologies et licences
-Element Web et Synapse : AGPL-3.0, PostgreSQL : PostgreSQL License, Caddy : Apache-2.0. Les configurations originales sont sous AGPL-3.0-or-later. Voir THIRD_PARTY_NOTICES.md et docs/DEMO_JURY.md. Aucun secret rÃ©el ni compte fictif activÃ© nâ€™est distribuÃ©.
-
-## Essai local vérifié
-Le socle tourne sur https://localhost, avec HTTP sur 8088 car le port 80 était occupé. Le certificat provient de l’autorité locale Caddy : installer cette autorité dans un profil de test avant de naviguer, sans ignorer la validation TLS. La vérification HTTPS automatisée a utilisé explicitement cette autorité et obtenu HTTP 200. Aucun compte activé.
+# FasoConnect — Hackathon 226, édition 2026
+
+Messagerie administrative fictive pour le Burkina Faso. **Niveau : Créer** : client TypeScript et console originaux, sur Matrix et son chiffrement officiel. Prototype de concours, sans certification de sécurité.
+
+## Démonstration locale
+
+Ouvrir https://localhost/service/ ou https://localhost/admin/. Le projet est dans **FasoConnect sur le Bureau** ; raccourcis FasoConnect.url et Administration.url. Pour redémarrer, exécuter Demarrer.ps1.
+
+Le Bureau est dans OneDrive : les secrets et accès fictifs restent dans `Documents/Codex/FasoConnect-prive`. local.settings.json indique ce dossier sans contenir de secret. L’autorité TLS locale a été approuvée dans le profil Windows avec votre accord.
+
+## Installation vierge
+
+```powershell
+python scripts/configure.py --domain localhost
+$cfg = Get-Content local.settings.json -Raw | ConvertFrom-Json
+$env:COMPOSE_ENV_FILES = Join-Path $cfg.privateDirectory '.env'
+docker compose up -d --build
+python scripts/demo.py
+```
+
+La dernière commande crée volontairement les seuls comptes fictifs et impose changement du mot de passe et TOTP. Elle est séparée pour ne pas installer automatiquement des comptes de concours sur un hébergement réel. Ne jamais ignorer les alertes de certificat. Voir docs/DEPLOIEMENT.md.
+
+## Fonctions
+
+PWA française, annuaire authentifié, conversations privées et groupes sur invitation, texte, réponses, fichiers chiffrés de 10 Mo maximum, membres, vérification manuelle des appareils et instructions avec accusés chiffrés. Console avec rôle administrateur, réauthentification récente pour chaque action sensible, code d’activation de quinze minutes à usage unique et récupération contrôlée sans SMS/email.
+
+La révocation coupe les identités et sessions, bloque durablement les anciens salons et crée des successeurs avec de nouvelles sessions de chiffrement. Les membres acceptent les invitations ; l’historique reste dans les anciens salons. Un appareil peut conserver ses anciennes copies.
+
+## Preuves et limites
+
+Tests réels : TOTP puis connexion Matrix, groupe chiffré, fichier, instruction et accusé, révocation sur deux appareils, appareil perdu, coupure sans doublon, recherche de témoins, sauvegarde chiffrée et restauration isolée des deux bases. Détails dans docs/VERIFICATION.md.
+
+Aucun effacement distant garanti, blocage universel des captures, valeur juridique automatique ou notification mobile universelle. Les clés restent dans le navigateur ; pas de sauvegarde automatique de ces clés dans ce prototype. Qualification sur téléphones physiques et accessibilité exhaustive à compléter. Les brouillons hors ligne restent en mémoire et leur renvoi est manuel.
+
+## Technologies et licences
+
+Matrix JS SDK 44.0.0 / Rust crypto WASM 18.9.0, Synapse 1.161.0, Keycloak 26.8.1, PostgreSQL 17.11, Caddy 2.10.2 et Node 22.22.3. Sources originales AGPL-3.0-or-later ; licences amont conservées dans THIRD_PARTY_NOTICES.md. Aucun CDN, fournisseur d’identité, email, SMS ou analytique externe. Téléchargements à l’installation ; services et PKI entièrement locaux à l’exécution.

@@ -711,6 +711,10 @@ async function main() {
     );
     return;
   }
+  if (!navigator.locks)
+    throw new Error(
+      "Utilisez un navigateur récent permettant le verrouillage sécurisé du stockage local.",
+    );
   let granted = false;
   if (navigator.locks) {
     granted = await new Promise<boolean>((ready) => {

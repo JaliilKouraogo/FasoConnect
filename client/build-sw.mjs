@@ -1,5 +1,13 @@
+import { gzipSync } from "node:zlib";
 import { readdir, writeFile, readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+for (const name of await readdir("dist/assets")) {
+  if (/\.(js|css|wasm)$/.test(name))
+    await writeFile(
+      "dist/assets/" + name + ".gz",
+      gzipSync(await readFile("dist/assets/" + name), { level: 9 }),
+    );
+}
 const assets = [
   "/service/",
   "/service/icon.svg",

@@ -111,6 +111,7 @@ services:
     restart: unless-stopped
   admin:
     image: fasoconnect-admin:0.1.0
+    pull_policy: never
     build: ./admin
     environment:
       DOMAIN: ${DOMAIN}
@@ -132,6 +133,7 @@ services:
     restart: unless-stopped
   service-client:
     image: fasoconnect-service-client:0.1.0
+    pull_policy: never
     build: ./client
     networks: [backend]
     healthcheck:

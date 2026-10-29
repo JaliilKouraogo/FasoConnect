@@ -19,3 +19,6 @@ for name,role in [('agent.alpha','agent'),('agent.beta','agent'),('responsable.g
  activation[name]={'temporary_password':password,'role':role}
  path.write_text(json.dumps(activation,indent=2))
 print('Identités fictives créées ou conservées. Secrets locaux : .demo-activation.json ; ne pas partager ce fichier. TOTP obligatoire à l’activation.')
+
+result=subprocess.run(compose()+['run','--rm','--no-deps','init'],capture_output=True,cwd=ROOT)
+if result.returncode:raise SystemExit('Comptes conservés ; synchronisation des rôles à vérifier.')

@@ -1,21 +1,28 @@
-# Rapport de vÃ©rification
-
-29 octobre 2026 : quatre tests statiques rÃ©ussis ; `docker compose --env-file .env.example config --quiet` rÃ©ussit. Moteur Docker 29.1.3 accessible avec autorisation adaptÃ©e. TÃ©lÃ©chargement des images lancÃ©, pas de dÃ©marrage fonctionnel validÃ©.
-
-Les quatorze tests d'acceptation restent non exÃ©cutÃ©s. Aucun Ã©change, aucun second facteur, aucune rÃ©vocation cryptographique ni instruction chiffrÃ©e n'est attestÃ©. Les connexions sont fermÃ©es par dÃ©faut. La licence AGPL officielle est incluse.
-
-## Deuxième étape — résultats réellement observés
-- Images téléchargées, PostgreSQL x2 et Synapse en bonne santé, Element, Keycloak et Caddy démarrés.
-- Correction des permissions du volume Synapse et vérification de son démarrage.
-- Realm Keycloak importé : lecture administrative des exécutions confirme auth-username-password-form REQUIRED et auth-otp-form REQUIRED. Pas de flux direct de mot de passe pour le client OIDC.
-- API Matrix login : SSO, token de connexion SSO et application_service annoncés ; aucun m.login.password. Aucun application service configuré.
-- Sept tests unitaires de la règle serveur passent dans le conteneur Synapse : refus du clair, type personnalisé clair, absence de chiffrement, salon public, état inconnu et changement d'algorithme ; autorisation du type chiffré attendu.
-- HTTPS avec validation du certificat par l'autorité locale Caddy : HTTP 200 pour le client. Configuration Caddy valide.
-- Aucun parcours utilisateur complet, aucun échange chiffré de deux agents et aucune révocation testés. Le TOTP configuré n'est pas encore une preuve d'absence de contournement.
-- Le contrôle des événements ne peut pas prouver que des octets présentés comme ciphertext ont effectivement été chiffrés par un client honnête.
-- Console Keycloak master et API admin refusées au proxy public ; administration technique uniquement depuis le réseau interne.
+# Vérification — 29 octobre 2026
 
-## Intégration SSO locale
-Correction : les endpoints OIDC internes utilisent HTTPS, avec une autorité locale explicitement installée dans le magasin du conteneur ; aucune vérification de certificat désactivée. Seul son certificat public est partagé avec Synapse. Le démarrage attend la disponibilité du realm.
-Test réel `scripts/test_activation.py` exécuté dans Synapse : parcours HTTPS vers Keycloak puis soumission du mot de passe temporaire de agent.alpha ; aucun jeton Matrix délivré, activation supplémentaire exigée. Cela ne couvre pas encore une connexion TOTP complète ou la récupération.
-Quatre utilisateurs fictifs créés avec UPDATE_PASSWORD et CONFIGURE_TOTP, rôles Keycloak attribués. Ces rôles ne constituent pas encore une autorisation côté Matrix.
+## Résultats réellement obtenus
+
+- Compose validé, services construits/démarrés ; PostgreSQL mis à jour en 17.11 et Node en 22.22.3 après vérification officielle et sauvegarde.
+- Huit tests unitaires de politique Synapse, six de révocation/instructions et quatre contrôles statiques réussis ; vérification TypeScript réussie.
+- Audit npm du client et de la console sans vulnérabilité signalée lors de la dernière installation. Ce n’est pas un audit complet de l’application ou des images.
+- SSO OIDC et TOTP réels, activation des identités et connexion Matrix ; administrateur accepté, responsable refusé à la console.
+- Message, instruction et accusé déchiffrés par leurs destinataires avec Rust crypto ; événements serveur m.room.encrypted.
+- Fichier chiffré au transfert, déchiffrement identique ; tentative de texte clair refusée 403.
+- Révocation d’alpha sur deux appareils : sync et médias 401 ; nouvel événement non déchiffrable sur les deux anciens moteurs. Mesure locale : 591 ms.
+- Appareil beta seul : jeton refusé, compte maintenu actif ; 3 salons renouvelés en 1149 ms.
+- Opération partielle reprise sans dégel ni nouvelle élévation du compte technique.
+- Code d’enrôlement incorrect refusé, usage unique vérifié ; expiration de quinze minutes contrôlée par la requête serveur.
+- Groupe sans invitation refusé, rôle agent limité, création forcée en privé/chiffré/historique joined ; invités et login local fermés ; fédération et API admin directe bloquées.
+- Coupure réelle du proxy puis reprise : même transaction, même event_id, contenu chiffré conservé.
+- Témoins absents du dump Matrix, médias et journaux ; complément aux essais cryptographiques.
+- Sauvegarde GnuPG et restauration des deux bases dans un conteneur sans réseau réussies ; fichiers des volumes essentiels présents.
+
+## Navigateur
+
+HTTPS approuvé ; activation du navigateur ; connexion TOTP ; annuaire ; invitation ; refus d’envoi avant vérification d’un appareil. Proposition de mise à jour PWA volontaire observée. Une course de la première version lors de l’activation a été corrigée en attendant controllerchange avant rechargement.
+
+## Limites des preuves
+
+Identités et contenus exclusivement fictifs. Pas d’audit indépendant, SLA ou campagne exhaustive des courses réseau. Téléphones physiques, installation PWA par OS, accessibilité complète, ergonomie de récupération des clés et démarrage d’un clone complet restauré restent à qualifier. Le renvoi des brouillons hors ligne est manuel. La vérification mobile par navigateur a été interrompue par une indisponibilité de l’outil de contrôle ; elle n’est pas comptée comme preuve complète.
+
+Première version fonctionnelle de concours, aucune certification absolue. Métadonnées, menace du serveur JavaScript compromis et copies hors ligne décrites dans SECURITE.md.
