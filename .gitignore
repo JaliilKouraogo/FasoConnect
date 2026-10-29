@@ -6,3 +6,13 @@ __pycache__/
 .demo-activation.json
 
 local-ca.crt
+
+node_modules/
+.test-*.json
+
+
+dist/
+
+local.settings.json
+work/
+*.gpg

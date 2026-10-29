@@ -1,4 +1,10 @@
+{
+  log default {
+    exclude http.log.error
+  }
+}
 {$DOMAIN} {
+  tls internal
   header {
     Strict-Transport-Security "max-age=31536000"
     X-Content-Type-Options nosniff
@@ -6,8 +12,24 @@
     Cache-Control "no-store"
     -Server
   }
-  @forbidden path /_matrix/federation/* /_matrix/key/* /_synapse/admin/* /auth/admin/* /auth/realms/master/*
-  respond @forbidden 403
+  @forbidden path /_matrix/federation/* /_matrix/key/* /_synapse/admin/* /_matrix/media/*/download/* /_matrix/media/*/thumbnail/* /auth/admin/* /auth/realms/master/*
+  route {
+    respond @forbidden 403
+  handle /service/* {
+    reverse_proxy service-client:8080
+  }
+  handle /admin/* {
+    reverse_proxy admin:3000
+  }
+  handle /activate {
+    reverse_proxy admin:3000
+  }
+  handle /room-successors {
+    reverse_proxy admin:3000
+  }
+  handle /directory {
+    reverse_proxy admin:3000
+  }
   handle /auth/* {
     reverse_proxy identity:8080
   }
@@ -18,7 +40,8 @@
     reverse_proxy synapse:8008
   }
   handle {
-    reverse_proxy element:80
+    redir /service/ 302
+  }
   }
 }
 

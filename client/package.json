@@ -1,0 +1,19 @@
+{
+  "name": "fasoconnect-service",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build && node build-sw.mjs",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "loglevel": "1.9.2",
+    "matrix-encrypt-attachment": "1.0.3",
+    "matrix-js-sdk": "44.0.0"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  }
+}

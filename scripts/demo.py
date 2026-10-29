@@ -1,14 +1,14 @@
 """Enrôle seulement des identités fictives via l'administration interne Keycloak."""
 import json,secrets,subprocess,pathlib
-ROOT=pathlib.Path(__file__).resolve().parents[1]
+from paths import ROOT,private_dir,compose
 def run(args,data=None):
- r=subprocess.run(['docker','compose','exec','-T','identity']+args,input=data,text=True,capture_output=True,cwd=ROOT)
+ r=subprocess.run(compose()+['exec','-T','identity']+args,input=data,text=True,capture_output=True,cwd=ROOT)
  if r.returncode:raise SystemExit('Échec administration identité : consulter localement son état ; aucun secret affiché.')
  return r.stdout
 run(['sh','-c','/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080/auth --realm master --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD" >/dev/null'])
 existing=json.loads(run(['/opt/keycloak/bin/kcadm.sh','get','users','-r','fasoconnect','--fields','username']))
 names={u['username'] for u in existing}
-path=ROOT/'.demo-activation.json'
+path=private_dir()/'.demo-activation.json'
 activation=json.loads(path.read_text()) if path.exists() else {}
 for name,role in [('agent.alpha','agent'),('agent.beta','agent'),('responsable.gamma','responsable'),('admin.delta','administrateur')]:
  if name in names:continue

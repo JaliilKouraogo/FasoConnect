@@ -1,7 +1,12 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 name: fasoconnect
 services:
   db:
-    image: postgres:17.6-alpine
+    image: postgres:17.11-alpine
     environment:
       POSTGRES_USER: synapse
       POSTGRES_DB: synapse
@@ -14,9 +19,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 15
+    logging: *default-logging
     restart: unless-stopped
   identity-db:
-    image: postgres:17.6-alpine
+    image: postgres:17.11-alpine
     environment:
       POSTGRES_USER: keycloak
       POSTGRES_DB: keycloak
@@ -28,10 +34,17 @@ services:
       interval: 10s
       timeout: 5s
       retries: 15
+    logging: *default-logging
     restart: unless-stopped
   identity:
     image: quay.io/keycloak/keycloak:26.8.1
     command: [start, --import-realm]
+    healthcheck:
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3; read -r response <&3; [[ $$response == *' 200 '* ]]"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://identity-db:5432/keycloak
@@ -42,14 +55,18 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
+      KC_HTTP_MANAGEMENT_RELATIVE_PATH: /
       KC_BOOTSTRAP_ADMIN_USERNAME: bootstrap-admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${IDENTITY_ADMIN_PASSWORD:?Configurer .env}
       DOMAIN: ${DOMAIN}
       OIDC_SECRET: ${OIDC_SECRET:?Configurer .env}
+      ADMIN_OIDC_SECRET: ${ADMIN_OIDC_SECRET:?Configurer .env}
+      PROVISIONER_SECRET: ${PROVISIONER_SECRET:?Configurer .env}
     volumes: ["./config/realm.json:/opt/keycloak/data/import/fasoconnect-realm.json:ro"]
     depends_on:
       identity-db: {condition: service_healthy}
     networks: [backend]
+    logging: *default-logging
     restart: unless-stopped
   trust-init:
     image: ghcr.io/element-hq/synapse:v1.161.0
@@ -58,14 +75,19 @@ services:
     depends_on: [proxy]
     networks: [backend]
   init:
-    depends_on: [identity]
+    depends_on:
+      identity: {condition: service_started}
+      db: {condition: service_healthy}
     image: ghcr.io/element-hq/synapse:v1.161.0
     entrypoint: [python, /bootstrap/init.py]
     environment:
       OIDC_SECRET: ${OIDC_SECRET:?Configurer .env}
       DOMAIN: ${DOMAIN:?Configurer .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configurer .env}
-    volumes: ["synapse:/data", "./scripts/init.py:/bootstrap/init.py:ro"]
+      ADMIN_OIDC_SECRET: ${ADMIN_OIDC_SECRET}
+      PROVISIONER_SECRET: ${PROVISIONER_SECRET}
+      IDENTITY_ADMIN_PASSWORD: ${IDENTITY_ADMIN_PASSWORD}
+    volumes: ["synapse:/data", "./scripts/init.py:/bootstrap/init.py:ro", "admin_auth:/admin-auth", "./config/realm.json:/bootstrap/realm.json:ro"]
     networks: [backend]
   synapse:
     entrypoint: [python, /bootstrap/start.py]
@@ -85,23 +107,64 @@ services:
       interval: 15s
       timeout: 5s
       retries: 20
+    logging: *default-logging
+    restart: unless-stopped
+  admin:
+    image: fasoconnect-admin:0.1.0
+    build: ./admin
+    environment:
+      DOMAIN: ${DOMAIN}
+      ADMIN_OIDC_SECRET: ${ADMIN_OIDC_SECRET}
+      PROVISIONER_SECRET: ${PROVISIONER_SECRET}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      NODE_EXTRA_CA_CERTS: /trust/root.crt
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-30}
+    volumes: ["trust:/trust:ro", "admin_auth:/admin-auth"]
+    networks: [backend]
+    depends_on:
+      synapse: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
+    restart: unless-stopped
+  service-client:
+    image: fasoconnect-service-client:0.1.0
+    build: ./client
+    networks: [backend]
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://localhost:8080/service/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
     restart: unless-stopped
   element:
+    profiles: [reference-client]
     image: vectorim/element-web:v1.12.32
     volumes: ["./config/element.json:/app/config.json:ro"]
     networks: [backend]
+    logging: *default-logging
     restart: unless-stopped
   proxy:
     image: caddy:2.10.2-alpine
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://localhost:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
     environment:
       DOMAIN: ${DOMAIN:?Configurer .env}
-    ports: ["${HTTP_PORT:-80}:80", "${HTTPS_PORT:-443}:443"]
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-80}:80", "${BIND_ADDRESS:-127.0.0.1}:${HTTPS_PORT:-443}:443"]
     volumes: ["./config/Caddyfile:/etc/caddy/Caddyfile:ro", "caddy:/data", "caddy_config:/config"]
     networks:
       backend:
         aliases: [identity.localhost]
       edge: {}
-    depends_on: [element]
+    depends_on: [service-client]
+    logging: *default-logging
     restart: unless-stopped
 networks:
   backend: {internal: true}
@@ -113,3 +176,4 @@ volumes:
   caddy_config: {}
   identity_db: {}
   trust: {}
+  admin_auth: {}

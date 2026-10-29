@@ -37,6 +37,47 @@
         "https://${DOMAIN}/_synapse/client/oidc/callback"
       ],
       "webOrigins": []
+    },
+    {
+      "clientId": "faso-admin",
+      "secret": "${ADMIN_OIDC_SECRET}",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "https://${DOMAIN}/admin/callback"
+      ],
+      "defaultClientScopes": [
+        "profile",
+        "roles"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "faso-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "faso-admin-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "faso-provisioner",
+      "secret": "${PROVISIONER_SECRET}",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
     }
   ],
   "authenticationFlows": [
@@ -74,5 +115,10 @@
         }
       ]
     }
-  ]
+  ],
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "fr"
+  ],
+  "defaultLocale": "fr"
 }

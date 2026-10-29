@@ -1,0 +1,1 @@
+{"name":"fasoconnect-administration","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test"},"dependencies":{"jose":"6.2.13","openid-client":"6.8.8","pg":"8.23.1"}}

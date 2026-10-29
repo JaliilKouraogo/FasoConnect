@@ -1,0 +1,279 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #18372e;
+  background: #f4f6f0;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+a,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+a {
+  touch-action: manipulation;
+}
+button {
+  cursor: pointer;
+  border: 1px solid #cdd9cd;
+  border-radius: 8px;
+  background: white;
+  padding: 10px 14px;
+  color: #164c3b;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+button.primary {
+  background: #165f49;
+  color: white;
+  border: 0;
+}
+header {
+  height: 76px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 28px;
+  background: white;
+  border-bottom: 1px solid #dbe4d9;
+}
+header strong {
+  font-size: 23px;
+  letter-spacing: -0.04em;
+}
+header span {
+  flex: 1;
+  color: #668071;
+  font-size: 13px;
+}
+header a {
+  color: #235e49;
+  font-size: 13px;
+}
+.shell {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  height: calc(100dvh - 112px);
+}
+aside {
+  padding: 20px;
+  overflow: auto;
+  background: #eaf0e7;
+  border-right: 1px solid #d5e0d3;
+}
+aside h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+}
+aside button {
+  display: block;
+  text-align: left;
+  width: 100%;
+  margin: 9px 0;
+}
+.selected {
+  border-color: #165f49;
+  background: #d7e8da;
+}
+.chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 26px 5%;
+  overflow: hidden;
+}
+h1 {
+  margin: 0 0 10px;
+  font-size: 25px;
+}
+.meta {
+  font-size: 12px;
+  color: #5e7466;
+}
+.messages {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 0;
+}
+.bubble {
+  background: white;
+  padding: 16px 20px;
+  border: 1px solid #e0e7dc;
+  border-radius: 12px;
+  margin: 12px 0;
+  max-width: 740px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.instruction {
+  border-left: 5px solid #b59540;
+  background: #fffdf4;
+}
+.sender {
+  font-size: 12px;
+  color: #70826e;
+  margin-bottom: 8px;
+}
+.bubble button {
+  margin-top: 12px;
+  font-size: 13px;
+}
+form.composer {
+  display: flex;
+  gap: 9px;
+  align-items: end;
+  padding-top: 15px;
+}
+textarea {
+  resize: vertical;
+  min-height: 56px;
+  max-height: 180px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #cdd9cd;
+  border-radius: 10px;
+}
+input,
+select {
+  padding: 11px;
+  border: 1px solid #c7d5c8;
+  border-radius: 8px;
+  max-width: 100%;
+  background: white;
+}
+#status {
+  min-height: 36px;
+  padding: 8px 28px;
+  background: #173f32;
+  color: #fff;
+  font-size: 13px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.welcome {
+  max-width: 670px;
+  margin: 10vh auto;
+  padding: 32px;
+}
+h2 {
+  font-size: 19px;
+}
+p {
+  line-height: 1.65;
+}
+.panel {
+  position: fixed;
+  inset: 12% 15%;
+  background: #fff;
+  z-index: 5;
+  padding: 28px;
+  box-shadow: 0 12px 70px #1238;
+  border-radius: 15px;
+  overflow: auto;
+}
+.panel label {
+  display: block;
+  margin: 14px 0;
+}
+.panel input,
+.panel textarea {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+}
+.panel pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f2f5ee;
+  padding: 12px;
+  font-size: 12px;
+}
+.directory {
+  padding: 14px;
+  border-bottom: 1px solid #dce4d8;
+}
+.priority {
+  color: #94702c;
+  font-size: 12px;
+}
+.reply {
+  background: #e5ecdf;
+  padding: 10px;
+  font-size: 13px;
+}
+#update {
+  background: #e5bf64;
+  color: #24362c;
+}
+small {
+  display: block;
+  margin-top: 10px;
+  color: #627364;
+}
+@media (max-width: 700px) {
+  header {
+    padding: 0 15px;
+    gap: 10px;
+    height: 66px;
+  }
+  header strong {
+    font-size: 20px;
+  }
+  header a {
+    font-size: 11px;
+  }
+  .shell {
+    grid-template-columns: 1fr;
+    height: calc(100dvh - 102px);
+  }
+  aside {
+    max-height: 32vh;
+    padding: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-content: start;
+  }
+  aside button {
+    width: auto;
+    margin: 0;
+  }
+  aside h2 {
+    width: 100%;
+    margin: 0;
+  }
+  .chat {
+    padding: 18px;
+    min-height: 0;
+  }
+  .panel {
+    inset: 5%;
+    padding: 20px;
+  }
+  .actions button {
+    font-size: 12px;
+  }
+  .bubble {
+    padding: 13px;
+  }
+  form.composer {
+    flex-wrap: wrap;
+  }
+  .composer textarea {
+    flex-basis: 100%;
+  }
+}

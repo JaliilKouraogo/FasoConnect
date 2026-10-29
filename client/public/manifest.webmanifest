@@ -1,0 +1,1 @@
+{"name":"FasoConnect — Messagerie de service","short_name":"FasoConnect","lang":"fr","start_url":"/service/","scope":"/service/","display":"standalone","background_color":"#f5f6ef","theme_color":"#145f49","icons":[{"src":"/service/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}

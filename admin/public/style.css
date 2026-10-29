@@ -1,0 +1,139 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #182e2a;
+  background: #f3f6f2;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header {
+  padding: 22px 6vw;
+  display: flex;
+  gap: 28px;
+  background: #fff;
+  border-bottom: 1px solid #d9e2db;
+  align-items: center;
+}
+header a {
+  color: #126447;
+  font-weight: 700;
+  text-decoration: none;
+}
+header span {
+  flex: 1;
+}
+main {
+  max-width: 1050px;
+  margin: 50px auto;
+  padding: 0 24px;
+}
+.eyebrow {
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  color: #6a756d;
+}
+h1 {
+  font-size: clamp(32px, 5vw, 54px);
+  letter-spacing: -0.04em;
+  margin: 16px 0;
+}
+p {
+  line-height: 1.65;
+  max-width: 780px;
+}
+section {
+  background: white;
+  padding: 28px;
+  border: 1px solid #dce4dd;
+  border-radius: 16px;
+  margin: 30px 0;
+}
+button,
+.button {
+  display: inline-block;
+  background: #135f47;
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+input,
+select {
+  display: block;
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #bacac0;
+  border-radius: 6px;
+  margin-top: 6px;
+  font: inherit;
+}
+label {
+  display: block;
+  margin-bottom: 16px;
+}
+form {
+  max-width: 440px;
+}
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid #edf0ec;
+  padding: 18px 0;
+}
+.row span {
+  flex: 1;
+}
+.row input {
+  max-width: 160px;
+}
+.row button {
+  background: #8b3631;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f4f6f2;
+  padding: 16px;
+  border-radius: 8px;
+}
+.operation {
+  border-left: 4px solid #bb922c;
+  padding: 8px 18px;
+  margin: 18px 0;
+}
+.effective {
+  border-color: #1a7655;
+}
+#status {
+  padding: 14px;
+  background: #e5eee7;
+  margin: 20px 0;
+  border-radius: 8px;
+}
+@media (max-width: 650px) {
+  header {
+    flex-wrap: wrap;
+    font-size: 13px;
+    gap: 12px;
+  }
+  .row {
+    flex-wrap: wrap;
+  }
+  .row span {
+    flex-basis: 100%;
+  }
+  section {
+    padding: 18px;
+  }
+}

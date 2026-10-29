@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>Administration · FasoConnect</title
+  ><link rel="stylesheet" href="/admin/style.css" />
+  <body>
+    <header>
+      <a href="/">FasoConnect</a><span>Administration locale</span
+      ><a href="/service/">Messagerie de service</a>
+    </header>
+    <main>
+      <p class="eyebrow">HACKATHON 226 · ÉDITION 2026</p>
+      <h1>Les accès sous contrôle.</h1>
+      <p>
+        Enrôlez les agents fictifs et suivez chaque étape d’une révocation.
+        Cette console ne reçoit aucune clé de déchiffrement.
+      </p>
+      <div id="status" role="status">Vérification de la connexion…</div>
+      <a class="button" href="/admin/login"
+        >Connexion / réauthentification avec TOTP</a
+      >
+      <section>
+        <h2>Agents enrôlés</h2>
+        <p>
+          Une révocation crée des conversations de remplacement. Les anciens
+          salons restent bloqués à l’envoi.
+        </p>
+        <div id="agents"></div>
+      </section>
+      <section id="directory-editor" hidden>
+        <h2>Modifier l’annuaire</h2>
+        <form id="directory-form">
+          <label>Identifiant<input name="username" readonly /></label
+          ><label
+            >Nom fictif<input name="name" maxlength="120" required /></label
+          ><label>Ministère<input name="ministere" maxlength="120" /></label
+          ><label>Direction<input name="direction" maxlength="120" /></label
+          ><label>Fonction<input name="fonction" maxlength="120" /></label
+          ><button>Enregistrer après réauthentification</button>
+        </form>
+      </section>
+      <section>
+        <h2>Enrôler un agent fictif</h2>
+        <form id="enroll">
+          <label
+            >Identifiant<input
+              name="username"
+              required
+              pattern="[a-z][a-z0-9._-]{2,50}" /></label
+          ><label>Nom fictif<input name="name" maxlength="80" required /></label
+          ><label
+            >Rôle<select name="role">
+              <option value="agent">Agent</option>
+              <option value="responsable">Responsable</option>
+            </select></label
+          ><button>Créer l’accès temporaire</button>
+        </form>
+        <pre id="activation"></pre>
+      </section>
+      <section>
+        <h2>Journal des révocations</h2>
+        <p>
+          « Effective » signifie : identité et sessions concernées coupées,
+          anciens salons bloqués et successeurs créés. Les copies déjà reçues
+          restent sur les appareils.
+        </p>
+        <div id="operations"></div>
+      </section>
+    </main>
+    <script type="module" src="/admin/app.js"></script>
+  </body>
+</html>
