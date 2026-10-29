@@ -1,2 +1,8 @@
 .env
 *.tar.gz
+
+__pycache__/
+*.pyc
+.demo-activation.json
+
+local-ca.crt

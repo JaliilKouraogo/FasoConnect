@@ -1,5 +1,5 @@
 # Menaces et limites
-Le socle ne garantit pas encore l'exclusion du contenu clair : Element autorise des salons non chiffrés et Synapse ne l'interdit pas ici. Pour cette raison aucun agent n'est activé.
+Un module Synapse refuse les événements de contenu non chiffrés et les salons publics. Il ne peut pas prouver qu'un client malveillant chiffre réellement les octets présentés comme ciphertext. Les pièces jointes et les métadonnées exigent encore des tests d'intégration. Quatre identités fictives sont enrôlées avec activation TOTP obligatoire.
 Les identifiants, IP, horaires, tailles, fréquence, appareils, appartenances, noms de salons et événements d'état sont visibles du serveur. Ne jamais placer d'informations confidentielles dans les noms et sujets.
 Un serveur web compromis peut distribuer du JavaScript qui vole les clés. TLS ne protège pas contre ce serveur. Prévoir une distribution contrôlée, revue et signée et une politique CSP à tester avec Element.
 Le stockage cryptographique du navigateur doit être considéré sensible. Aucun effacement distant garanti, aucune protection universelle des captures. Les sauvegardes de clés demandent une politique de récupération indépendante de l'administrateur.

@@ -1,3 +1,12 @@
+import time, urllib.request
+for attempt in range(120):
+    try:
+        urllib.request.urlopen('http://identity:8080/auth/realms/fasoconnect',timeout=2).close()
+        break
+    except Exception:
+        time.sleep(1)
+else:
+    raise SystemExit('Identity realm not ready')
 import os, pathlib, secrets, json
 import yaml
 root = pathlib.Path('/data')
@@ -27,9 +36,9 @@ config = {
  'oidc_providers':[{'idp_id':'keycloak','idp_name':'FasoConnect — TOTP',
  'issuer':'https://' + domain + '/auth/realms/fasoconnect',
  'discover':False,'authorization_endpoint':'https://' + domain + '/auth/realms/fasoconnect/protocol/openid-connect/auth',
- 'token_endpoint':'http://identity:8080/auth/realms/fasoconnect/protocol/openid-connect/token',
- 'jwks_uri':'http://identity:8080/auth/realms/fasoconnect/protocol/openid-connect/certs',
- 'userinfo_endpoint':'http://identity:8080/auth/realms/fasoconnect/protocol/openid-connect/userinfo',
+ 'token_endpoint':'https://identity.localhost/auth/realms/fasoconnect/protocol/openid-connect/token',
+ 'jwks_uri':'https://identity.localhost/auth/realms/fasoconnect/protocol/openid-connect/certs',
+ 'userinfo_endpoint':'https://identity.localhost/auth/realms/fasoconnect/protocol/openid-connect/userinfo',
  'client_id':'synapse','client_secret':os.environ['OIDC_SECRET'],
  'scopes':['openid','profile'], 'user_mapping_provider':{'config':{'localpart_template':'{{ user.preferred_username }}','display_name_template':'{{ user.name }}'}}}],
  'federation_domain_whitelist':[], 'trusted_key_servers':[],

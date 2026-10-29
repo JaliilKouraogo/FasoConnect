@@ -22,3 +22,10 @@
   }
 }
 
+
+https://identity.localhost {
+  @admin path /auth/admin/* /auth/realms/master/*
+  respond @admin 403
+  tls internal
+  reverse_proxy identity:8080
+}
