@@ -1,0 +1,20 @@
+{$DOMAIN} {
+  header {
+    Strict-Transport-Security "max-age=31536000"
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer
+    Cache-Control "no-store"
+    -Server
+  }
+  @forbidden path /_matrix/federation/* /_matrix/key/* /_synapse/admin/*
+  respond @forbidden 403
+  handle /_matrix/* {
+    reverse_proxy synapse:8008
+  }
+  handle /_synapse/client/* {
+    reverse_proxy synapse:8008
+  }
+  handle {
+    reverse_proxy element:80
+  }
+}

@@ -1,0 +1,7 @@
+# Menaces et limites
+Le socle ne garantit pas encore l'exclusion du contenu clair : Element autorise des salons non chiffrés et Synapse ne l'interdit pas ici. Pour cette raison aucun agent n'est activé.
+Les identifiants, IP, horaires, tailles, fréquence, appareils, appartenances, noms de salons et événements d'état sont visibles du serveur. Ne jamais placer d'informations confidentielles dans les noms et sujets.
+Un serveur web compromis peut distribuer du JavaScript qui vole les clés. TLS ne protège pas contre ce serveur. Prévoir une distribution contrôlée, revue et signée et une politique CSP à tester avec Element.
+Le stockage cryptographique du navigateur doit être considéré sensible. Aucun effacement distant garanti, aucune protection universelle des captures. Les sauvegardes de clés demandent une politique de récupération indépendante de l'administrateur.
+Les logs applicatifs Synapse sont supprimés dans ce socle pour réduire les traces ; cela réduit aussi la capacité de diagnostic. Aucun journal d'accès proxy n'est activé. Les journaux Docker doivent malgré tout être inspectés et leur rétention bornée avant exploitation.
+La déconnexion OIDC ne révoque pas automatiquement les jetons Matrix. La révocation doit couper l'identité, invalider les jetons, bloquer les médias, exclure les groupes et faire renouveler les sessions de tous les émetteurs. Les courses et échecs partiels exigent une machine d'état explicite. Non implémenté.
