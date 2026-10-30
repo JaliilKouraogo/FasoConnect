@@ -53,6 +53,8 @@ Les chemins et l’état des comptes décrits dans la documentation de recette c
 
 ## Documentation
 
+Pour écrire à quelqu’un : **Nouveau message → choisir un collègue → Ouvrir la conversation**. Pour ajouter une personne à une conversation existante, utiliser **+ Inviter**. Les invitations reçues sont regroupées dans une boîte dédiée ; les anciens salons restent accessibles sous **Anciennes conversations**. Les groupes de plusieurs collègues sont créés par un responsable ou un administrateur.
+
 | Sujet | Guide |
 |---|---|
 | Architecture et composants | [Architecture](docs/ARCHITECTURE.md) |

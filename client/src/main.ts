@@ -1,7 +1,13 @@
 import loglevel from "loglevel";
 import "./style.css";
+import "./messenger.css";
 import { openAssistant } from "./assistant";
 import { installUpdates } from "./updates";
+import {
+  selectedInvitees,
+  waitForSyncedRoom,
+  partitionConversations,
+} from "./conversations.js";
 import { collectAssistantContext } from "./assistant-context.js";
 import {
   validateInstruction,
@@ -26,7 +32,7 @@ const quiet = {
   },
 };
 const root = document.getElementById("app")!;
-root.innerHTML = `<header><a class="brand" href="/service/" aria-label="FasoConnect, accueil"><span class="brand-mark">f.</span><strong>FasoConnect<span class="brand-dot">.</span></strong></a><span class="header-caption">Un espace de confiance.</span><span class="security-badge">Échanges protégés</span></header><div id="status" role="status">Votre espace de messagerie sécurisé</div><div id="content"></div>`;
+root.innerHTML = `<header><a class="brand" href="/service/" aria-label="FasoConnect, accueil"><span class="brand-mark">F</span><strong>FasoConnect<span class="brand-dot">.</span></strong></a><span class="header-caption">Messagerie</span><span class="security-badge">Échanges protégés</span></header><div id="status" role="status">Votre espace de messagerie sécurisé</div><div id="content"></div>`;
 const $ = (id: string) => document.getElementById(id)!;
 const humanError = (e: any) =>
   e.httpStatus === 401
@@ -57,10 +63,19 @@ function button(text: string, action: () => any, cls = "") {
   b.onclick = async () => {
     if (b.disabled) return;
     b.disabled = true;
+    const scope = b.closest(".panel");
+    scope?.querySelector(".panel-error")?.remove();
     try {
       await action();
     } catch (e: any) {
-      status(humanError(e));
+      const message = humanError(e);
+      if (scope?.isConnected) {
+        const alert = node("p", message, "panel-error");
+        alert.setAttribute("role", "alert");
+        scope.append(alert);
+        alert.scrollIntoView({ block: "nearest" });
+      }
+      status(message);
     } finally {
       b.disabled = false;
     }
@@ -71,6 +86,7 @@ function panel(title: string) {
   closePanel();
   const p = node("div", undefined, "panel");
   p.setAttribute("role", "dialog");
+  p.setAttribute("aria-modal", "true");
   p.setAttribute("aria-label", title);
   p.append(button("Fermer", closePanel, "panel-close"), node("h2", title));
   document.body.append(p);
@@ -170,16 +186,102 @@ async function poll() {
   }
 }
 function displayName(user: string) {
-  return (
+  const name =
     agents.find((a) => "@" + a.id + ":" + location.hostname === user)?.name ||
     user?.split(":")[0].replace(/^@/, "") ||
-    "Collègue"
+    "Collègue";
+  return name
+    .replace(/\s+Simulation$/, "")
+    .replace(
+      /^(agent|responsable|admin)\./,
+      (_, role) => role[0].toUpperCase() + role.slice(1) + " ",
+    );
+}
+function archivedRoom(room: any) {
+  return Boolean(
+    successors.some((s) => s.old === room.roomId) ||
+      room.currentState.getStateEvents("m.room.tombstone", "") ||
+      room
+        .getMembers()
+        .some((m: any) => m.userId.startsWith("@faso-operator:")),
   );
+}
+function roomTitle(room: any) {
+  const peers = room
+    .getMembers()
+    .filter(
+      (m: any) =>
+        m.userId !== client.getUserId() &&
+        ["join", "invite"].includes(m.membership) &&
+        !m.userId.startsWith("@faso-operator:"),
+    );
+  const title = room.name || "Conversation";
+  if (
+    /^Conversation(?: privée| renouvelée)?$/.test(title) ||
+    title.includes(" Simulation")
+  )
+    return peers.length
+      ? peers.map((m: any) => displayName(m.userId)).join(", ")
+      : "Conversation privée";
+  return title;
+}
+function directConversationKey(room: any) {
+  const name = room.currentState
+    .getStateEvents("m.room.name", "")
+    ?.getContent().name;
+  if (name && !/^Conversation(?: privée| renouvelée)?$/.test(name)) return null;
+  const members = room
+    .getMembers()
+    .filter((m: any) => ["join", "invite"].includes(m.membership));
+  return members.length === 2
+    ? members
+        .map((m: any) => m.userId)
+        .sort()
+        .join("|")
+    : null;
+}
+function roomPreview(room: any) {
+  const last = [...room.getLiveTimeline().getEvents()]
+    .reverse()
+    .find(
+      (e: any) =>
+        !e.isState() &&
+        [
+          "m.room.message",
+          "m.room.encrypted",
+          "bf.fasoconnect.instruction",
+        ].includes(e.getType()),
+    );
+  if (!last) return "Commencez la conversation";
+  if (last.isDecryptionFailure() || last.getType() === "m.room.encrypted")
+    return "Message protégé";
+  return last.getContent().msgtype === "m.file"
+    ? "Fichier partagé"
+    : String(last.getContent().body || "Instruction de service").slice(0, 75);
+}
+function conversationButton(room: any) {
+  const b = button(
+    "",
+    () => openRoom(room.roomId),
+    room.roomId === roomId ? "conversation selected" : "conversation",
+  );
+  const info = node("span", undefined, "conversation-info");
+  info.append(
+    node("strong", roomTitle(room)),
+    node("small", roomPreview(room)),
+  );
+  b.append(
+    node("span", roomTitle(room).slice(0, 1).toUpperCase(), "room-avatar"),
+    info,
+  );
+  return b;
 }
 function rooms() {
   const list = $("rooms"),
-    profile = node("div", undefined, "profile-card");
-  const spaceOpen = list.querySelector("details")?.open || false;
+    spaceOpen = list.querySelector(".more-tools")?.hasAttribute("open"),
+    archiveOpen = list.querySelector(".room-archives")?.hasAttribute("open");
+  const scroll = list.querySelector(".conversation-list")?.scrollTop || 0;
+  const profile = node("div", undefined, "profile-card");
   profile.append(
     node(
       "span",
@@ -188,50 +290,61 @@ function rooms() {
     ),
     node("div", displayName(client.getUserId()), "profile-name"),
   );
+  const joined = client
+    .getRooms()
+    .filter((r: any) => r.getMyMembership() === "join")
+    .sort(
+      (a: any, b: any) =>
+        (b.getLastActiveTimestamp() || 0) - (a.getLastActiveTimestamp() || 0),
+    );
+  const invites = client
+    .getRooms()
+    .filter((r: any) => r.getMyMembership() === "invite" && !archivedRoom(r));
   list.replaceChildren(
     profile,
-    button("+ Nouvelle conversation", createRoom, "primary new-conversation"),
-    node("h2", "Conversations"),
+    button("+ Nouveau message", () => createRoom(), "primary new-conversation"),
   );
+  if (invites.length)
+    list.append(
+      button(
+        "Invitations reçues · " + invites.length,
+        () => showInvitations(),
+        "invitations-entry",
+      ),
+    );
+  list.append(node("h2", "Messages"));
   const conversations = node("div", undefined, "conversation-list");
-  for (const room of client.getRooms()) {
-    if (room.getMyMembership() === "invite") {
-      conversations.append(
-        button("Invitation · " + room.name, async () => {
-          await client.joinRoom(room.roomId);
-          await openRoom(room.roomId);
-          rooms();
-        }),
-        button("Refuser cette invitation", async () => {
-          await client.leave(room.roomId);
-          rooms();
-        }),
-      );
-      continue;
-    }
-    if (room.getMyMembership() !== "join") continue;
-    const b = button(
-      room.name || "Conversation privée",
-      () => openRoom(room.roomId),
-      room.roomId === roomId ? "conversation selected" : "conversation",
-    );
-    b.prepend(
-      node("span", (room.name || "C").slice(0, 1).toUpperCase(), "room-avatar"),
-    );
-    conversations.append(b);
-  }
-  if (!conversations.childElementCount)
+  const { active, archived } = partitionConversations(
+    joined,
+    archivedRoom,
+    directConversationKey,
+  );
+  for (const room of active) conversations.append(conversationButton(room));
+  if (!active.length)
     conversations.append(
-      node("p", "Votre prochaine conversation commence ici.", "sidebar-empty"),
+      node("p", "Choisissez un collègue pour commencer.", "sidebar-empty"),
     );
+  if (archived.length) {
+    const details = node(
+      "details",
+      undefined,
+      "room-archives",
+    ) as HTMLDetailsElement;
+    details.open = Boolean(archiveOpen);
+    details.append(
+      node("summary", "Anciennes conversations · " + archived.length),
+    );
+    for (const room of archived) details.append(conversationButton(room));
+    conversations.append(details);
+  }
   const tools = node("nav", undefined, "sidebar-tools");
   tools.setAttribute("aria-label", "Outils de messagerie");
   tools.append(
     button("✦ Assistant IA", showAssistant, "assistant-entry"),
-    button("Annuaire", showDirectory),
+    button("Annuaire des collègues", showDirectory),
   );
-  const more = node("details", undefined, "more-tools");
-  (more as HTMLDetailsElement).open = spaceOpen;
+  const more = node("details", undefined, "more-tools") as HTMLDetailsElement;
+  more.open = Boolean(spaceOpen);
   more.append(
     node("summary", "Mon espace"),
     button("Appareils et clés", showDevices),
@@ -249,133 +362,333 @@ function rooms() {
     );
   tools.append(more);
   list.append(conversations, tools);
+  conversations.scrollTop = scroll;
 }
-function showDirectory() {
-  const p = panel("Retrouvez vos collègues"),
-    search = node("input") as HTMLInputElement;
-  search.placeholder = "Nom, ministère, direction…";
-  search.setAttribute("aria-label", "Rechercher dans l’annuaire");
-  const list = node("div");
-  p.append(search, list);
+function showInvitations() {
+  const p = panel("Vos invitations");
+  const invites = client
+    .getRooms()
+    .filter((r: any) => r.getMyMembership() === "invite" && !archivedRoom(r));
+  if (!invites.length)
+    p.append(node("p", "Vous n’avez aucune invitation en attente."));
+  for (const room of invites) {
+    const card = node("div", undefined, "invitation-card");
+    card.append(
+      node("h3", roomTitle(room)),
+      node("p", "Vous êtes invité à rejoindre cette conversation privée."),
+    );
+    const actions = node("div", undefined, "actions");
+    actions.append(
+      button(
+        "Accepter l’invitation",
+        async () => {
+          await client.joinRoom(room.roomId);
+          await openRoom(room.roomId);
+          rooms();
+        },
+        "primary",
+      ),
+      button("Refuser", async () => {
+        await client.leave(room.roomId);
+        showInvitations();
+        rooms();
+      }),
+    );
+    card.append(actions);
+    p.append(card);
+  }
+}
+function contactPicker(
+  p: HTMLElement,
+  onChoose: (ids: string[]) => Promise<any>,
+  multiple: boolean,
+  exclude: string[] = [],
+  chosen: string[] = [],
+) {
+  const search = node("input") as HTMLInputElement;
+  search.placeholder = "Rechercher un collègue…";
+  search.setAttribute("aria-label", "Rechercher un collègue");
+  const selected = new Set(chosen),
+    list = node("div", undefined, "contact-picker"),
+    counter = node("p", "", "selection-count");
+  const submit = button(
+    "Continuer",
+    () => onChoose([...selected]),
+    "primary picker-submit",
+  );
+  const refresh = () => {
+    counter.textContent = selected.size
+      ? selected.size + " collègue(s) sélectionné(s)"
+      : "Choisissez " +
+        (multiple ? "un ou plusieurs collègues" : "un collègue");
+    submit.disabled = !selected.size;
+  };
   const render = () => {
     list.replaceChildren();
-    for (const a of agents.filter((a) =>
-      JSON.stringify(a).toLowerCase().includes(search.value.toLowerCase()),
+    for (const a of agents.filter(
+      (a) =>
+        !exclude.includes(a.id) &&
+        a.id !== client.getUserId().split(":")[0].slice(1) &&
+        (a.name + " " + a.id + " " + a.direction)
+          .toLocaleLowerCase()
+          .includes(search.value.toLocaleLowerCase()),
     )) {
-      const row = node(
-        "div",
-        a.name +
-          " · " +
-          a.id +
-          "\n" +
-          a.ministere +
-          " / " +
-          a.direction +
-          " · " +
-          (a.fonction || a.role || "Agent"),
-        "directory",
+      const row = node("label", undefined, "contact-choice"),
+        check = node("input") as HTMLInputElement;
+      check.type = "checkbox";
+      check.checked = selected.has(a.id);
+      const info = node("span", undefined, "contact-info");
+      info.append(
+        node("strong", displayName("@" + a.id + ":" + location.hostname)),
+        node("small", a.fonction || a.role || a.id),
+      );
+      check.onchange = () => {
+        if (!multiple) selected.clear();
+        if (check.checked) selected.add(a.id);
+        else selected.delete(a.id);
+        refresh();
+        if (!multiple) render();
+      };
+      row.append(
+        node(
+          "span",
+          displayName("@" + a.id + ":" + location.hostname)
+            .slice(0, 1)
+            .toUpperCase(),
+          "room-avatar",
+        ),
+        info,
+        check,
       );
       list.append(row);
     }
+    if (!list.childElementCount)
+      list.append(node("p", "Aucun collègue ne correspond à votre recherche."));
   };
   search.oninput = render;
+  p.append(search, list, counter, submit);
   render();
+  refresh();
+  return submit;
+}
+function showDirectory() {
+  const p = panel("Votre annuaire");
+  p.append(
+    node(
+      "p",
+      "Choisissez un collègue pour lui écrire. Son invitation sera envoyée automatiquement si la conversation n’existe pas encore.",
+    ),
+  );
+  contactPicker(p, async (ids) => startConversation(ids), false);
+}
+function canInvite(room: any) {
+  return (
+    !archivedRoom(room) &&
+    (room.currentState.getMember(client.getUserId())?.powerLevel || 0) >=
+      (room.currentState.getStateEvents("m.room.power_levels", "")?.getContent()
+        .invite ?? 0)
+  );
+}
+function showInvite() {
+  const room = client.getRoom(roomId),
+    p = panel("Inviter un collègue");
+  if (!room || !canInvite(room)) {
+    p.append(
+      node(
+        "p",
+        "Cette conversation est archivée ou vos droits ne permettent pas d’y inviter quelqu’un. Vous pouvez démarrer une nouvelle conversation.",
+      ),
+      button("Nouveau message", () => createRoom(), "primary"),
+    );
+    return;
+  }
+  const existing = room
+    .getMembers()
+    .filter((m: any) => ["join", "invite"].includes(m.membership))
+    .map((m: any) => m.userId.split(":")[0].slice(1));
+  const multiple = ["responsable", "administrateur"].includes(
+    role(client.getUserId()),
+  );
+  if (!multiple && existing.length >= 2) {
+    p.append(
+      node(
+        "p",
+        "Un responsable doit créer un groupe pour ajouter d’autres personnes.",
+      ),
+    );
+    return;
+  }
+  p.append(
+    node(
+      "p",
+      "Le collègue recevra une invitation à accepter dans sa messagerie.",
+    ),
+  );
+  const submit = contactPicker(
+    p,
+    async (ids) => {
+      for (const id of ids)
+        await client.invite(room.roomId, "@" + id + ":" + location.hostname);
+      p.replaceChildren(
+        node("h2", "Invitation envoyée"),
+        node(
+          "p",
+          "Votre collègue peut maintenant l’accepter dans sa messagerie.",
+        ),
+        button("Terminer", closePanel, "primary"),
+      );
+    },
+    false,
+    existing,
+  );
+  submit.textContent = "Envoyer l’invitation";
+}
+function showChatOptions() {
+  const p = panel("Options de la conversation");
+  if (["responsable", "administrateur"].includes(role(client.getUserId())))
+    p.append(button("Créer une instruction de service", instruction));
+  p.append(
+    button("Vérifier les appareils", showDevices),
+    button("Quitter la conversation", async () => {
+      if (!confirm("Quitter cette conversation ?")) return;
+      await client.leave(roomId);
+      roomId = "";
+      root.classList.remove("room-open");
+      closePanel();
+      rooms();
+      $("chat").replaceChildren(
+        node(
+          "p",
+          "Choisissez une conversation pour continuer.",
+          "chat-empty-message",
+        ),
+      );
+    }),
+  );
 }
 function showMembers() {
   const room = client.getRoom(roomId),
-    p = panel("Membres");
-  const canManage =
-    ["responsable", "administrateur"].includes(role(client.getUserId())) &&
-    (room.currentState.getMember(client.getUserId())?.powerLevel || 0) >= 50;
-  for (const member of room.getMembers()) {
-    const row = node("div", undefined, "directory");
-    row.append(node("p", member.userId + " · " + member.membership));
+    p = panel("Participants");
+  for (const member of room
+    .getMembers()
+    .filter(
+      (m: any) =>
+        ["join", "invite"].includes(m.membership) &&
+        !m.userId.startsWith("@faso-operator:"),
+    )) {
+    const row = node("div", undefined, "member-row");
+    row.append(
+      node("span", displayName(member.userId)),
+      node(
+        "small",
+        member.membership === "invite"
+          ? "Invitation en attente"
+          : "Dans la conversation",
+      ),
+    );
     if (
-      canManage &&
-      member.userId !== client.getUserId() &&
-      ["join", "invite"].includes(member.membership)
+      ["responsable", "administrateur"].includes(role(client.getUserId())) &&
+      (room.currentState.getMember(client.getUserId())?.powerLevel || 0) >=
+        50 &&
+      member.userId !== client.getUserId()
     )
       row.append(
-        button("Retirer du groupe", async () => {
-          await client.kick(
-            roomId,
-            member.userId,
-            "Retrait administratif du groupe",
-          );
-          p.remove();
+        button("Retirer", async () => {
+          await client.kick(roomId, member.userId, "Retrait du groupe");
+          showMembers();
         }),
       );
     p.append(row);
   }
-  if (canManage) {
-    const name = node("input") as HTMLInputElement;
-    name.placeholder = "Identifiant de l’agent à inviter";
-    name.setAttribute("aria-label", "Identifiant à inviter");
-    p.append(
-      name,
-      button("Inviter", async () => {
-        if (!agents.some((a) => a.id === name.value))
-          throw new Error("Agent absent de l’annuaire");
-        await client.invite(roomId, "@" + name.value + ":" + location.hostname);
-        p.remove();
-      }),
+  if (canInvite(room))
+    p.append(button("+ Inviter un collègue", showInvite, "primary"));
+}
+let pendingConversation: { key: string; id: string } | undefined;
+async function startConversation(rawIds: string[], name = "") {
+  const self = client.getUserId().split(":")[0].slice(1),
+    allowed = ["responsable", "administrateur"].includes(
+      role(client.getUserId()),
     );
+  const ids = selectedInvitees(rawIds, self, agents, allowed);
+  const key = JSON.stringify([self, [...ids].sort(), name.trim()]);
+  if (pendingConversation?.key === key) {
+    await openRoom(pendingConversation.id);
+    pendingConversation = undefined;
+    return;
   }
+  if (ids.length === 1 && !name.trim()) {
+    const other = "@" + ids[0] + ":" + location.hostname;
+    const existing = client
+      .getRooms()
+      .filter(
+        (r: any) =>
+          r.getMyMembership() === "join" &&
+          !archivedRoom(r) &&
+          directConversationKey(r) &&
+          r.hasEncryptionStateEvent(),
+      )
+      .filter((r: any) => {
+        const members = r
+          .getMembers()
+          .filter((m: any) => ["join", "invite"].includes(m.membership));
+        return (
+          members.length === 2 && members.some((m: any) => m.userId === other)
+        );
+      })
+      .sort(
+        (a: any, b: any) =>
+          b.getLastActiveTimestamp() - a.getLastActiveTimestamp(),
+      )[0];
+    if (existing) return openRoom(existing.roomId);
+  }
+  const result = await client.createRoom({
+    preset: "private_chat",
+    visibility: "private",
+    ...(name.trim() ? { name: name.trim().slice(0, 100) } : {}),
+    invite: ids.map((id) => "@" + id + ":" + location.hostname),
+    creation_content: { "m.federate": false },
+    initial_state: [
+      {
+        type: "m.room.encryption",
+        state_key: "",
+        content: { algorithm: "m.megolm.v1.aes-sha2" },
+      },
+      {
+        type: "m.room.history_visibility",
+        state_key: "",
+        content: { history_visibility: "joined" },
+      },
+    ],
+  });
+  pendingConversation = { key, id: result.room_id };
+  status("Conversation créée. Réception des informations…");
+  rooms();
+  await openRoom(result.room_id);
+  pendingConversation = undefined;
 }
 async function createRoom() {
-  const p = panel("Nouvelle conversation privée");
-  const name = node("input") as HTMLInputElement;
-  name.placeholder = "Nom du groupe (visible du serveur)";
-  const members = node("input") as HTMLInputElement;
-  members.placeholder = "agent.beta, responsable.gamma";
+  await directory();
+  const p = panel("Un nouveau message");
   p.append(
-    name,
-    members,
     node(
-      "small",
-      "Uniquement des agents de l’annuaire. Les nouveaux salons sont chiffrés et sur invitation.",
-    ),
-    button(
-      "Créer",
-      async () => {
-        const ids = members.value
-          .split(",")
-          .map((x) => x.trim())
-          .filter(Boolean);
-        if (!ids.length || ids.some((id) => !agents.some((a) => a.id === id)))
-          throw new Error(
-            "Choisissez des identifiants présents dans l’annuaire.",
-          );
-        if (
-          ids.length > 1 &&
-          !["responsable", "administrateur"].includes(role(client.getUserId()))
-        )
-          throw new Error("Un responsable crée les groupes institutionnels.");
-        const result = await client.createRoom({
-          preset: "private_chat",
-          visibility: "private",
-          name: name.value || "Conversation privée",
-          invite: ids.map((id) => "@" + id + ":" + location.hostname),
-          creation_content: { "m.federate": false },
-          initial_state: [
-            {
-              type: "m.room.encryption",
-              state_key: "",
-              content: { algorithm: "m.megolm.v1.aes-sha2" },
-            },
-            {
-              type: "m.room.history_visibility",
-              state_key: "",
-              content: { history_visibility: "joined" },
-            },
-          ],
-        });
-        p.remove();
-        await openRoom(result.room_id);
-      },
-      "primary",
+      "p",
+      "Choisissez votre destinataire. Nous nous occupons de l’invitation.",
     ),
   );
+  const group = ["responsable", "administrateur"].includes(
+    role(client.getUserId()),
+  );
+  const name = node("input") as HTMLInputElement;
+  name.placeholder = "Nom du groupe, facultatif";
+  name.maxLength = 100;
+  name.setAttribute("aria-label", "Nom du groupe, facultatif");
+  if (group) p.append(name);
+  const submit = contactPicker(
+    p,
+    (ids) => startConversation(ids, group ? name.value : ""),
+    group,
+  );
+  submit.textContent = "Ouvrir la conversation";
 }
 async function verifiedRecipients() {
   const room = client.getRoom(roomId);
@@ -413,37 +726,51 @@ async function send(type: string, content: any) {
     busy = false;
   }
 }
+let roomOpenGeneration = 0;
 async function openRoom(id: string) {
+  const generation = ++roomOpenGeneration;
+  const room = await waitForSyncedRoom(client, id);
+  if (generation !== roomOpenGeneration) return;
   closePanel();
+  root.classList.add("room-open");
   $("chat").classList.remove("empty-chat");
   roomId = id;
   query = "";
   controls.clear();
   rooms();
-  const room = client.getRoom(id);
-  if (!room) return;
   const chat = $("chat");
-  chat.replaceChildren(
-    node("h1", room.name),
-    node(
-      "div",
-      "Conversation privée · Vos messages restent entre vous",
-      "meta",
-    ),
+  const heading = node("div", undefined, "chat-header"),
+    title = node("div", undefined, "chat-heading");
+  const back = button(
+    "←",
+    () => root.classList.remove("room-open"),
+    "back-to-list",
   );
-  const actions = node("div", undefined, "actions");
+  back.setAttribute("aria-label", "Revenir aux conversations");
+  title.append(
+    node("h1", roomTitle(room)),
+    node("div", "Messages privés et protégés", "meta"),
+  );
+  const actions = node("div", undefined, "actions chat-actions");
+  const options = button("⋯", showChatOptions, "chat-menu");
+  options.setAttribute("aria-label", "Options de la conversation");
   actions.append(
-    button("Membres", showMembers),
-    button("Quitter", async () => {
-      await client.leave(roomId);
-      roomId = "";
-      rooms();
-      chat.replaceChildren();
+    button("Participants", showMembers),
+    button("+ Inviter", showInvite, "invite-action"),
+    button("Rechercher", () => {
+      const field = $("chat-search") as HTMLInputElement;
+      field.hidden = !field.hidden;
+      if (!field.hidden) field.focus();
     }),
+    options,
   );
-  if (["responsable", "administrateur"].includes(role(client.getUserId())))
-    actions.append(button("Instruction de service", instruction));
-  chat.append(actions);
+  heading.append(
+    back,
+    node("span", roomTitle(room).slice(0, 1).toUpperCase(), "room-avatar"),
+    title,
+    actions,
+  );
+  chat.replaceChildren(heading);
   const tombstone = room.currentState.getStateEvents("m.room.tombstone", "");
   const replacement =
     tombstone?.getContent().replacement_room ||
@@ -458,7 +785,9 @@ async function openRoom(id: string) {
     );
   }
   const search = node("input") as HTMLInputElement;
-  search.placeholder = "Rechercher dans les messages déchiffrés ici";
+  search.id = "chat-search";
+  search.hidden = true;
+  search.placeholder = "Rechercher un message…";
   search.setAttribute("aria-label", "Recherche locale dans la conversation");
   search.oninput = () => {
     query = search.value.toLowerCase();
@@ -466,10 +795,14 @@ async function openRoom(id: string) {
   };
   chat.append(
     search,
-    button("Charger l’historique précédent", async () => {
-      await client.scrollback(room, 50);
-      renderMessages();
-    }),
+    button(
+      "Afficher les messages précédents",
+      async () => {
+        await client.scrollback(room, 50);
+        renderMessages();
+      },
+      "history-button",
+    ),
   );
   const messages = node("div", undefined, "messages");
   messages.id = "messages";
@@ -482,6 +815,12 @@ async function openRoom(id: string) {
   const submit = node("button", "Envoyer", "primary") as HTMLButtonElement;
   submit.type = "submit";
   controls.add(submit);
+  const blocked = archivedRoom(room);
+  input.disabled = blocked;
+  submit.disabled = blocked;
+  if (blocked)
+    input.placeholder =
+      "Conversation archivée · Ouvrez la conversation actuelle pour écrire.";
   compose.append(input, submit);
   compose.onsubmit = async (e) => {
     e.preventDefault();
@@ -535,7 +874,11 @@ async function openRoom(id: string) {
     "attachment-button",
   ) as HTMLLabelElement;
   attach.htmlFor = "attachment-input";
-  chat.append(compose, attach, file);
+  attach.textContent = "＋";
+  attach.title = "Joindre un fichier";
+  attach.setAttribute("aria-label", "Joindre un fichier");
+  compose.prepend(attach);
+  chat.append(compose, file);
   renderMessages();
 }
 function validInstruction(event: any, room: any) {
@@ -562,6 +905,24 @@ function renderMessages() {
   const room = client.getRoom(roomId),
     events = room?.getLiveTimeline().getEvents() || [];
   box.replaceChildren();
+  if (
+    !events.some(
+      (e: any) =>
+        !e.isState() &&
+        [
+          "m.room.message",
+          "m.room.encrypted",
+          "bf.fasoconnect.instruction",
+        ].includes(e.getType()),
+    )
+  )
+    box.append(
+      node(
+        "div",
+        "Votre conversation est prête. Écrivez votre premier message ci-dessous.",
+        "chat-empty-message",
+      ),
+    );
   for (const event of events) {
     if (event.isState()) continue;
     const c = event.getContent();
@@ -571,7 +932,11 @@ function renderMessages() {
       !((c.body || "") + " " + (c.subject || "")).toLowerCase().includes(query)
     )
       continue;
-    const b = node("article", undefined, "bubble");
+    const b = node(
+      "article",
+      undefined,
+      event.getSender() === client.getUserId() ? "bubble outgoing" : "bubble",
+    );
     b.append(
       node(
         "div",
@@ -856,9 +1221,9 @@ async function main() {
   await client.initRustCrypto({ cryptoDatabasePrefix: "faso-" + s.device_id });
   await directory();
   $("content").innerHTML =
-    '<div class="shell"><aside id="rooms" aria-label="Conversations et outils"></aside><main class="chat empty-chat" id="chat"><div class="empty-state"><span class="empty-symbol">f.</span><div class="eyebrow">BIENVENUE DANS VOTRE ESPACE</div><h1>Une bonne journée<br>commence par un échange.</h1><p>Retrouvez vos collègues dans l’annuaire<br>ou ouvrez une conversation à gauche.</p><div id="empty-actions" class="actions"></div><small>Vos échanges sont privés et protégés.</small></div></main></div>';
+    '<div class="shell"><aside id="rooms" aria-label="Conversations et outils"></aside><main class="chat empty-chat" id="chat"><div class="empty-state"><span class="empty-symbol">F</span><h1>Vos messages</h1><p>Sélectionnez une conversation<br>ou choisissez un contact pour commencer.</p><div id="empty-actions" class="actions"></div><small>Vos échanges sont privés et protégés.</small></div></main></div>';
   $("empty-actions").append(
-    button("Nouvelle conversation", createRoom, "primary"),
+    button("Nouveau message", createRoom, "primary"),
     button("Demander à l’assistant ✦", showAssistant),
   );
   client.on("sync", (state: string, prev: string, data: any) => {

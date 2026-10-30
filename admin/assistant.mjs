@@ -107,7 +107,7 @@ function helpContext(prompt) {
   const pages = [
     {
       terms: ["invit", "conversation", "collègue", "demarrer", "démarrer"],
-      text: "Tout agent peut inviter lui-même un collègue dans une conversation privée. Ouvrez Annuaire pour retrouver son identifiant, puis + Nouvelle conversation, sélectionnez son compte et cliquez sur Créer. Le collègue accepte l’Invitation dans sa liste. Cette opération ne demande pas d’administrateur. Dans un groupe existant, passez par Membres puis Inviter selon vos droits.",
+      text: "Tout agent peut inviter lui-même un collègue dans une conversation privée. Ouvrez Annuaire pour retrouver son identifiant, puis + Nouveau message, sélectionnez son compte et cliquez sur Ouvrir la conversation. Le collègue accepte l’Invitation dans sa liste. Cette opération ne demande pas d’administrateur. Dans un groupe existant, passez par Membres puis Inviter selon vos droits.",
     },
     {
       terms: [

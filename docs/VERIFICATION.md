@@ -2,6 +2,14 @@
 
 ## Complément du 30 octobre : IA locale et interface
 
+### Correction des conversations et présentation de messagerie
+
+- Création : sélection dans l’annuaire, exclusion du créateur, déduplication des destinataires et attente de la synchronisation de l’état chiffré avant d’ouvrir le salon. Les erreurs sont affichées dans la fenêtre de création. Une création déjà reconnue mais encore en synchronisation n’est pas répétée au clic suivant.
+- Invitations : bouton direct dans la conversation, choix de contacts et confirmation d’envoi. Les invitations reçues sont regroupées, sans suppression des anciens salons. Les conversations privées en doublon sont rangées dans l’historique accessible.
+- Quatre tests de régression sur les destinataires, les droits, la synchronisation et le classement sans perte des salons réussis. Recette SDK/HTTPS réelle : création, invitation initiale, acceptation et invitation dans un salon existant réussies. Les deux salons temporaires sont quittés par leurs participants après le test.
+- Chrome : nouvelle liste de contacts observée, contact Gamma sélectionné depuis Beta et conversation existante ouverte avec son champ de message. Aucune saisie d’identifiant manuel requise et aucun message envoyé lors de ce contrôle. Contrôle visuel de bureau effectué ; qualification exhaustive sur téléphones toujours à compléter.
+- Présentation simplifiée en deux colonnes, messages entrants/sortants, options secondaires regroupées, texte plus lisible et navigation mobile liste/conversation avec retour.
+
 - Ollama 0.40.11 installé dans un service dédié ; Qwen 3.5 2B importé depuis le cache local après contrôle des empreintes. Aucun port publié ; unique réseau Docker interne ; fonctions cloud désactivées ; journalisation du moteur désactivée.
 - Sept tests nouveaux sur l’IA et les extraits réussis, soit treize tests Node avec les tests précédents de révocation/instructions ; quatre contrôles statiques et compilation TypeScript/Vite réussis.
 - API HTTPS réelle : connexion obligatoire, origine incorrecte refusée, accord requis pour les extraits, agent inconnu refusé, compte révoqué refusé et ancien salon figé refusé.
