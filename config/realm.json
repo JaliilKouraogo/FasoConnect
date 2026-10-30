@@ -1,5 +1,7 @@
 {
   "realm": "fasoconnect",
+  "displayName": "FasoConnect",
+  "loginTheme": "fasoconnect",
   "enabled": true,
   "registrationAllowed": false,
   "resetPasswordAllowed": false,

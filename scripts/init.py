@@ -40,7 +40,7 @@ for key in ['DOMAIN','ADMIN_OIDC_SECRET','PROVISIONER_SECRET','OIDC_SECRET']:
     realm_template=realm_template.replace('${'+key+'}',os.environ[key])
 realm=json.loads(realm_template)
 base='/admin/realms/fasoconnect'
-kc_request('PUT',base,{'internationalizationEnabled':True,'supportedLocales':['fr'],'defaultLocale':'fr'},kc_admin)
+kc_request('PUT',base,{'internationalizationEnabled':True,'supportedLocales':['fr'],'defaultLocale':'fr','displayName':'FasoConnect','loginTheme':'fasoconnect'},kc_admin)
 for client in realm['clients']:
     found=kc_request('GET',base+'/clients?clientId='+client['clientId'],token=kc_admin)
     if found:

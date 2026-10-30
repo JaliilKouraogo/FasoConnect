@@ -21,6 +21,9 @@
   handle /admin/* {
     reverse_proxy admin:3000
   }
+  handle /assistant/api/* {
+    reverse_proxy admin:3000
+  }
   handle /activate {
     reverse_proxy admin:3000
   }

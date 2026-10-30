@@ -21,3 +21,7 @@ Aucun journal d’accès ; erreurs HTTP sensibles exclues de Caddy. Rotation Doc
 ## Limites
 
 Un serveur web compromis peut distribuer un JavaScript qui vole les clés ; TLS ne résout pas cette menace. La distribution et les appareils doivent être protégés. La sauvegarde serveur ne récupère pas les clés des navigateurs : perdre toutes ces clés peut rendre l’historique illisible. Aucun effacement distant garanti, blocage universel des captures, antivirus du contenu chiffré, notification mobile universelle ou valeur juridique automatique des accusés. Audit et qualification multiappareils nécessaires avant toute donnée réelle.
+
+## Analyse IA locale facultative
+
+Le bouton Assistant IA local partage uniquement la demande saisie et les extraits explicitement cochés avec Ollama/Qwen sur cette machine. Ce traitement reçoit du texte déchiffré, en dehors du chiffrement Matrix. Il n’accède pas aux clés Matrix ni aux pièces jointes et ne publie aucun message. L’API exige l’identité Matrix, vérifie les salons sources et recontrôle les droits après génération. Le moteur n’a ni port publié ni accès Internet et ses logs Docker sont désactivés. Voir [IA_LOCALE.md](IA_LOCALE.md) pour les limites de mémoire, de conservation et d’injection de consignes.

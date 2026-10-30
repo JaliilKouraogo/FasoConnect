@@ -1,5 +1,8 @@
 import loglevel from "loglevel";
 import "./style.css";
+import { openAssistant } from "./assistant";
+import { installUpdates } from "./updates";
+import { collectAssistantContext } from "./assistant-context.js";
 import {
   validateInstruction,
   validateAcknowledgement,
@@ -23,7 +26,7 @@ const quiet = {
   },
 };
 const root = document.getElementById("app")!;
-root.innerHTML = `<header><strong>FasoConnect.</strong><span>Messagerie de service</span><a href="/">Accueil</a><a href="/admin/">Administration</a></header><div id="status" role="status">Connexion sécurisée locale</div><div id="content"></div>`;
+root.innerHTML = `<header><a class="brand" href="/service/" aria-label="FasoConnect, accueil"><span class="brand-mark">f.</span><strong>FasoConnect<span class="brand-dot">.</span></strong></a><span class="header-caption">Un espace de confiance.</span><span class="security-badge">Échanges protégés</span></header><div id="status" role="status">Votre espace de messagerie sécurisé</div><div id="content"></div>`;
 const $ = (id: string) => document.getElementById(id)!;
 const humanError = (e: any) =>
   e.httpStatus === 401
@@ -65,16 +68,50 @@ function button(text: string, action: () => any, cls = "") {
   return b;
 }
 function panel(title: string) {
-  document.querySelector(".panel")?.remove();
+  closePanel();
   const p = node("div", undefined, "panel");
   p.setAttribute("role", "dialog");
   p.setAttribute("aria-label", title);
-  p.append(
-    button("Fermer", () => p.remove()),
-    node("h2", title),
-  );
+  p.append(button("Fermer", closePanel, "panel-close"), node("h2", title));
   document.body.append(p);
   return p;
+}
+function closePanel() {
+  const p = document.querySelector(".panel");
+  p?.dispatchEvent(new Event("faso-close"));
+  p?.remove();
+}
+function showAssistant() {
+  const id = roomId,
+    room = client.getRoom(id),
+    context = collectAssistantContext(
+      room?.getLiveTimeline().getEvents() || [],
+      (event) => validInstruction(event, room),
+    );
+  return openAssistant({
+    token: client.getAccessToken(),
+    roomId: id,
+    context,
+    panel,
+    locked: () =>
+      !client?.getAccessToken() ||
+      roomId !== id ||
+      (id && client.getRoom(id)?.getMyMembership() !== "join") ||
+      successors.some((s) => s.old === id),
+    insertDraft: (answer) => {
+      const draft = document.getElementById(
+        "message-draft",
+      ) as HTMLTextAreaElement;
+      if (!draft) throw new Error("Ouvrez une conversation.");
+      if (
+        draft.value.trim() &&
+        !confirm("Remplacer votre brouillon actuel par cette proposition ?")
+      )
+        return;
+      draft.value = answer;
+      draft.focus();
+    },
+  });
 }
 function linkLogin() {
   location.href =
@@ -94,6 +131,7 @@ function role(user: string) {
     ?.role;
 }
 async function failLocked() {
+  closePanel();
   sessionStorage.removeItem("faso_session");
   client?.stopClient();
   controls.forEach((b) => (b.disabled = true));
@@ -131,12 +169,34 @@ async function poll() {
     if (e.httpStatus === 401) await failLocked();
   }
 }
+function displayName(user: string) {
+  return (
+    agents.find((a) => "@" + a.id + ":" + location.hostname === user)?.name ||
+    user?.split(":")[0].replace(/^@/, "") ||
+    "Collègue"
+  );
+}
 function rooms() {
-  const list = $("rooms");
-  list.replaceChildren(node("h2", "Conversations"));
+  const list = $("rooms"),
+    profile = node("div", undefined, "profile-card");
+  const spaceOpen = list.querySelector("details")?.open || false;
+  profile.append(
+    node(
+      "span",
+      displayName(client.getUserId()).slice(0, 1).toUpperCase(),
+      "avatar",
+    ),
+    node("div", displayName(client.getUserId()), "profile-name"),
+  );
+  list.replaceChildren(
+    profile,
+    button("+ Nouvelle conversation", createRoom, "primary new-conversation"),
+    node("h2", "Conversations"),
+  );
+  const conversations = node("div", undefined, "conversation-list");
   for (const room of client.getRooms()) {
     if (room.getMyMembership() === "invite") {
-      list.append(
+      conversations.append(
         button("Invitation · " + room.name, async () => {
           await client.joinRoom(room.roomId);
           await openRoom(room.roomId);
@@ -153,13 +213,27 @@ function rooms() {
     const b = button(
       room.name || "Conversation privée",
       () => openRoom(room.roomId),
-      room.roomId === roomId ? "selected" : "",
+      room.roomId === roomId ? "conversation selected" : "conversation",
     );
-    list.append(b);
+    b.prepend(
+      node("span", (room.name || "C").slice(0, 1).toUpperCase(), "room-avatar"),
+    );
+    conversations.append(b);
   }
-  list.append(
-    button("+ Conversation", createRoom),
+  if (!conversations.childElementCount)
+    conversations.append(
+      node("p", "Votre prochaine conversation commence ici.", "sidebar-empty"),
+    );
+  const tools = node("nav", undefined, "sidebar-tools");
+  tools.setAttribute("aria-label", "Outils de messagerie");
+  tools.append(
+    button("✦ Assistant IA", showAssistant, "assistant-entry"),
     button("Annuaire", showDirectory),
+  );
+  const more = node("details", undefined, "more-tools");
+  (more as HTMLDetailsElement).open = spaceOpen;
+  more.append(
+    node("summary", "Mon espace"),
     button("Appareils et clés", showDevices),
     button("Installer l’application", installHelp),
     button("Déconnexion", async () => {
@@ -167,9 +241,17 @@ function rooms() {
       await failLocked();
     }),
   );
+  if (role(client.getUserId()) === "administrateur")
+    more.append(
+      button("Administration", () => {
+        location.href = "/admin/";
+      }),
+    );
+  tools.append(more);
+  list.append(conversations, tools);
 }
 function showDirectory() {
-  const p = panel("Annuaire des agents fictifs"),
+  const p = panel("Retrouvez vos collègues"),
     search = node("input") as HTMLInputElement;
   search.placeholder = "Nom, ministère, direction…";
   search.setAttribute("aria-label", "Rechercher dans l’annuaire");
@@ -332,6 +414,8 @@ async function send(type: string, content: any) {
   }
 }
 async function openRoom(id: string) {
+  closePanel();
+  $("chat").classList.remove("empty-chat");
   roomId = id;
   query = "";
   controls.clear();
@@ -343,7 +427,7 @@ async function openRoom(id: string) {
     node("h1", room.name),
     node(
       "div",
-      "Chiffrement de bout en bout · Vérification des appareils obligatoire à l’envoi",
+      "Conversation privée · Vos messages restent entre vous",
       "meta",
     ),
   );
@@ -392,6 +476,7 @@ async function openRoom(id: string) {
   chat.append(messages);
   const compose = node("form", undefined, "composer") as HTMLFormElement;
   const input = node("textarea") as HTMLTextAreaElement;
+  input.id = "message-draft";
   input.placeholder = "Votre message…";
   input.setAttribute("aria-label", "Message");
   const submit = node("button", "Envoyer", "primary") as HTMLButtonElement;
@@ -417,6 +502,8 @@ async function openRoom(id: string) {
   };
   const file = node("input") as HTMLInputElement;
   file.type = "file";
+  file.id = "attachment-input";
+  file.className = "visually-hidden";
   file.setAttribute("aria-label", "Joindre un fichier de 10 Mo maximum");
   file.onchange = async () => {
     try {
@@ -442,7 +529,13 @@ async function openRoom(id: string) {
       file.value = "";
     }
   };
-  chat.append(compose, file);
+  const attach = node(
+    "label",
+    "Joindre un fichier",
+    "attachment-button",
+  ) as HTMLLabelElement;
+  attach.htmlFor = "attachment-input";
+  chat.append(compose, attach, file);
   renderMessages();
 }
 function validInstruction(event: any, room: any) {
@@ -482,7 +575,7 @@ function renderMessages() {
     b.append(
       node(
         "div",
-        (event.getSender() || "Agent") +
+        displayName(event.getSender()) +
           " · " +
           new Date(event.getTs()).toLocaleTimeString("fr-FR", {
             hour: "2-digit",
@@ -688,27 +781,25 @@ function installHelp() {
     ),
   );
 }
+function welcome() {
+  $("content").innerHTML =
+    `<main class="welcome-layout"><section class="welcome-story"><div class="eyebrow">VOTRE ESPACE DE TRAVAIL</div><h1>Les bons échanges.<br><em>En toute confiance.</em></h1><p>Vos collègues, vos conversations et vos idées.<br>Réunis dans un espace simple et protégé.</p><div class="welcome-tags"><span>Messages privés</span><span>Équipe connectée</span><span>IA locale</span></div><div class="conversation-art" aria-hidden="true"><div class="art-top"><span class="art-avatar">A</span><div><b>Votre équipe</b><small>Une conversation qui avance.</small></div><span class="art-dot"></span></div><div class="art-message">Bonjour ! Le document est prêt pour notre réunion.</div><div class="art-message art-own">Parfait, merci. À tout à l’heure !<span>✓✓</span></div><div class="art-footer"><span>✦</span> Un peu d’aide, beaucoup de simplicité.</div></div><small class="welcome-signature">FasoConnect · Pensé pour vos échanges de service.</small></section><section class="login-card"><div class="eyebrow">HEUREUX DE VOUS RETROUVER</div><h2>Bienvenue chez vous.</h2><p>Connectez-vous pour retrouver votre équipe.</p><div id="welcome-action"></div><div class="login-steps"><span><b>1</b> Votre identifiant et votre mot de passe</span><span><b>2</b> Le code à 6 chiffres de votre téléphone</span></div><details class="login-help"><summary>Première connexion ?</summary><p>Votre administrateur vous remet votre accès. Après avoir choisi votre mot de passe, scannez le QR code affiché avec votre application d’authentification. Elle générera vos codes de connexion.</p><p>Un code ne fonctionne pas ? Vérifiez l’heure automatique du téléphone et attendez le code suivant.</p></details><small>Ce navigateur conserve les clés nécessaires à vos échanges. Utilisez votre appareil personnel et verrouillez votre session.</small></section></main>`;
+  $("welcome-action").append(
+    button(
+      "Se connecter →",
+      () => {
+        sessionStorage.setItem("faso_sensitive_accepted", "yes");
+        if (new URLSearchParams(location.search).has("loginToken"))
+          return main();
+        linkLogin();
+      },
+      "primary login-cta",
+    ),
+  );
+}
 async function main() {
   if (!sessionStorage.getItem("faso_sensitive_accepted")) {
-    $("content").replaceChildren(node("div", undefined, "welcome"));
-    const w = $("content").firstElementChild!;
-    w.appendChild(node("h1", "Vos échanges, votre infrastructure."));
-    w.appendChild(
-      node(
-        "p",
-        "FasoConnect utilise le chiffrement Matrix sur votre appareil. Les clés sont conservées dans le stockage local du navigateur ; les messages déchiffrés restent en mémoire. Un seul onglet actif par appareil est autorisé.",
-      ),
-    );
-    w.appendChild(
-      button(
-        "Activer ce navigateur",
-        () => {
-          sessionStorage.setItem("faso_sensitive_accepted", "yes");
-          main();
-        },
-        "primary",
-      ),
-    );
+    welcome();
     return;
   }
   if (!navigator.locks)
@@ -751,10 +842,7 @@ async function main() {
   }
   const raw = sessionStorage.getItem("faso_session");
   if (!raw) {
-    $("content").replaceChildren(node("div", undefined, "welcome"));
-    const w = $("content").firstElementChild!;
-    w.appendChild(node("h1", "Une connexion, un second facteur."));
-    w.appendChild(button("Se connecter avec TOTP", linkLogin, "primary"));
+    welcome();
     return;
   }
   const s = JSON.parse(raw);
@@ -768,13 +856,17 @@ async function main() {
   await client.initRustCrypto({ cryptoDatabasePrefix: "faso-" + s.device_id });
   await directory();
   $("content").innerHTML =
-    '<div class="shell"><aside id="rooms"></aside><main class="chat" id="chat"><h1>Bonjour.</h1><p>Choisissez une conversation ou consultez l’annuaire.</p><p>Les instructions et leurs accusés sont chiffrés par le SDK officiel Matrix.</p></main></div>';
+    '<div class="shell"><aside id="rooms" aria-label="Conversations et outils"></aside><main class="chat empty-chat" id="chat"><div class="empty-state"><span class="empty-symbol">f.</span><div class="eyebrow">BIENVENUE DANS VOTRE ESPACE</div><h1>Une bonne journée<br>commence par un échange.</h1><p>Retrouvez vos collègues dans l’annuaire<br>ou ouvrez une conversation à gauche.</p><div id="empty-actions" class="actions"></div><small>Vos échanges sont privés et protégés.</small></div></main></div>';
+  $("empty-actions").append(
+    button("Nouvelle conversation", createRoom, "primary"),
+    button("Demander à l’assistant ✦", showAssistant),
+  );
   client.on("sync", (state: string, prev: string, data: any) => {
     status(
       state === "ERROR"
         ? "Connexion interrompue. Reconnexion en cours…"
         : navigator.onLine
-          ? "Connecté · Chiffrement sur cet appareil"
+          ? "Connecté · Vos échanges sont protégés"
           : "Hors ligne · Aucun envoi en clair conservé sur disque",
     );
     if (data?.error?.httpStatus === 401) failLocked();
@@ -793,48 +885,9 @@ async function main() {
   await client.startClient({ initialSyncLimit: 100 });
   setInterval(poll, 5000);
   rooms();
-  if ("serviceWorker" in navigator) {
-    const registration = await navigator.serviceWorker.register(
-      "/service/sw.js",
-      { scope: "/service/" },
-    );
-    registration.onupdatefound = () => {
-      const worker = registration.installing;
-      if (worker)
-        worker.onstatechange = () => {
-          if (
-            worker.state === "installed" &&
-            navigator.serviceWorker.controller
-          ) {
-            const b = button("Mise à jour disponible — appliquer", () => {
-              if (busy) throw new Error("Attendez la fin de l’envoi.");
-              const draft = document.querySelector(
-                "textarea",
-              ) as HTMLTextAreaElement;
-              if (
-                draft?.value.trim() &&
-                !confirm(
-                  "La mise à jour effacera le brouillon non envoyé. Continuer ?",
-                )
-              )
-                return;
-              const pending = registration.waiting;
-              if (!pending) return;
-              navigator.serviceWorker.addEventListener(
-                "controllerchange",
-                () => location.reload(),
-                { once: true },
-              );
-              pending.postMessage("ACTIVATE_APPROVED");
-            });
-            b.id = "update";
-            $("content").prepend(b);
-          }
-        };
-    };
-  }
 }
 window.addEventListener("offline", () =>
   status("Hors ligne : le brouillon reste en mémoire, sans envoi automatique."),
 );
+void installUpdates(() => busy, status);
 main().catch((e: any) => status(humanError(e)));

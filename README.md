@@ -14,6 +14,7 @@ Messagerie administrative fictive pour le Burkina Faso. **Niveau : Créer** : cl
 - Instructions de service avec accusés de prise de connaissance chiffrés.
 - Révocation d’un agent ou d’un appareil, blocage des anciens salons et création de conversations de remplacement.
 - Application web installable, sauvegarde chiffrée et journal d’administration.
+- Assistant Ollama / Qwen 3.5 2B local : guide, rédaction, synthèse et suivi des actions sur les seuls extraits sélectionnés.
 
 ## Installer une nouvelle instance locale
 
@@ -42,6 +43,8 @@ Les accès sont générés dans le dossier privé. Aucun mot de passe ou secret 
 
 ## Instance de démonstration déjà préparée
 
+Pour installer l’IA locale, lancer `Configurer-IA.ps1`, puis cliquer **✦ Assistant IA** dans la messagerie. Voir le [guide des agents locaux](docs/IA_LOCALE.md) : installation, sélection des messages et confidentialité. Les brouillons ne sont jamais envoyés automatiquement.
+
 Ouvrir https://localhost/service/ ou https://localhost/admin/. Le projet est dans **FasoConnect sur le Bureau** ; raccourcis FasoConnect.url et Administration.url. Pour redémarrer, exécuter Demarrer.ps1.
 
 Le Bureau est dans OneDrive : les secrets et accès fictifs restent dans `Documents/Codex/FasoConnect-prive`. local.settings.json indique ce dossier sans contenir de secret. L’autorité TLS locale a été approuvée dans le profil Windows avec votre accord.
@@ -59,13 +62,14 @@ Les chemins et l’état des comptes décrits dans la documentation de recette c
 | Sauvegarde et restauration | [Sauvegarde](docs/SAUVEGARDE_RESTAURATION.md) |
 | Scénarios de démonstration | [Démonstration](docs/DEMO_JURY.md) |
 | Tests réellement effectués | [Vérification](docs/VERIFICATION.md) |
+| Ollama, Qwen et agents IA locaux | [IA locale](docs/IA_LOCALE.md) |
 
 ## Vérifier le code
 
 ```powershell
 npm ci --prefix client
 npm run --prefix client check
-node --test admin/revocation.test.mjs tests/instructions.test.mjs
+node --test admin/revocation.test.mjs admin/assistant.test.mjs tests/instructions.test.mjs
 python scripts/check.py
 ```
 

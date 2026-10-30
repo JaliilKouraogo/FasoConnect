@@ -68,7 +68,9 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Configuration Docker invalide.' }
   & docker compose --env-file $privateEnv up -d --build
   if ($LASTEXITCODE -ne 0) { throw 'La construction ou le démarrage a échoué.' }
-  $required = @('db','identity-db','identity','synapse','admin','proxy','service-client')
+  & docker compose --env-file $privateEnv exec -T proxy caddy reload --config /etc/caddy/Caddyfile --address 127.0.0.1:2019
+  if ($LASTEXITCODE -ne 0) { throw 'Le rechargement HTTPS a échoué.' }
+  $required = @('db','identity-db','identity','synapse','admin','proxy','service-client','ai')
   $ready = $false
   for ($attempt=0; $attempt -lt 90; $attempt++) {
     $ready = $true

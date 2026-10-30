@@ -24,3 +24,6 @@ Le compte technique Matrix reste interne, sans appareil cryptographique. Des jet
 Rôles applicatifs et annuaire sont dans PostgreSQL. Les agents créent des conversations à deux ; les responsables gèrent les groupes. Être administrateur ne confère pas de clés de contenu.
 
 Seul Caddy publie des ports, liés par défaut à 127.0.0.1. Réseau serveur interne ; aucun port PostgreSQL, Keycloak ou Synapse publié. TLS par autorité interne Caddy, y compris pour les appels OIDC de retour. Aucun service de certificats externe indispensable.
+## Extension IA locale
+
+Le navigateur choisit les textes déjà déchiffrés à partager avec `/assistant/api/`. Le service d’administration vérifie le jeton Matrix, l’enrôlement et les droits sur le salon, puis appelle Ollama sur un réseau Docker interne distinct. Seul `qwen3.5:2b` est utilisé, sans outil ni accès Internet. Les agents sont des spécialisations de consignes : guide avec fiches locales pertinentes, rédaction, synthèse et actions. Le résultat retourne au navigateur et peut devenir un brouillon ; son envoi ultérieur suit le chiffrement et les vérifications Matrix habituels. Aucun bot détenteur des clés des salons n’est ajouté. Détails et limites : [IA_LOCALE.md](IA_LOCALE.md).

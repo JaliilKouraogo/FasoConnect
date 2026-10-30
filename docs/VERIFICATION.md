@@ -1,5 +1,16 @@
 # Vérification — 29 octobre 2026
 
+## Complément du 30 octobre : IA locale et interface
+
+- Ollama 0.40.11 installé dans un service dédié ; Qwen 3.5 2B importé depuis le cache local après contrôle des empreintes. Aucun port publié ; unique réseau Docker interne ; fonctions cloud désactivées ; journalisation du moteur désactivée.
+- Sept tests nouveaux sur l’IA et les extraits réussis, soit treize tests Node avec les tests précédents de révocation/instructions ; quatre contrôles statiques et compilation TypeScript/Vite réussis.
+- API HTTPS réelle : connexion obligatoire, origine incorrecte refusée, accord requis pour les extraits, agent inconnu refusé, compte révoqué refusé et ancien salon figé refusé.
+- Les quatre agents ont répondu avec le modèle réel : aide, rédaction, synthèse avec références et action avec responsable/échéance. Après ajustement des consignes, mesures locales observées : rédaction 4,6 s, synthèse 14,3 s, actions 6,3 s ; premier guide 60,9 s avec chargement. Les premiers essais ont aussi montré des refus injustifiés et des étapes inventées, corrigés par consignes ciblées et sélection de fiches d’aide. Ce test ne garantit pas l’exactitude de toutes les réponses.
+- Nouveau thème Keycloak hérité de keycloak.v2 : ressources locales accessibles en HTTPS ; mot de passe accepté puis TOTP toujours obligatoire ; code TOTP réel de Gamma accepté. Test sans consommation d’un nouveau jeton Matrix.
+- Interface : accueil unique avec bouton de connexion, indications sur les deux étapes, navigation allégée, assistant visible, boutons de fichiers plus simples, palette douce et adaptation responsive par CSS. Mise à jour proposée aussi sur l’accueil sans effacer les clés du navigateur.
+- Le contrôle visuel automatisé dans Chrome a été interrompu car l’outil ne pouvait pas identifier l’URL avec assez de certitude. Aucun contournement de cette limite ; rendu complet et interactions sur téléphone à vérifier manuellement.
+
+
 ## Résultats réellement obtenus
 
 - Compose validé, services construits/démarrés ; PostgreSQL mis à jour en 17.11 et Node en 22.22.3 après vérification officielle et sauvegarde.

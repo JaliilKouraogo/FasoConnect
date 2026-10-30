@@ -22,6 +22,8 @@ Les sources originales de ce projet sont AGPL-3.0-or-later. Les bibliothèques e
 | Element Web, référence facultative non exposée | 1.12.32 | AGPL-3.0, option libre retenue | https://github.com/element-hq/element-web |
 | PyOTP, recette uniquement | 2.9.0 | MIT | https://github.com/pyauth/pyotp |
 | GnuPG, opération de sauvegarde | 2.4.9 local fourni avec Git, non redistribué | GPL, notices du binaire | https://gnupg.org/ |
+| Ollama, moteur IA local isolé | 0.40.11 | MIT et notices intégrées | https://github.com/ollama/ollama |
+| Qwen 3.5 2B, poids téléchargés séparément | qwen3.5:2b, empreintes vérifiées à l’installation | Apache-2.0 | https://ollama.com/library/qwen3.5:2b |
 
 Les lockfiles figent les dépendances transitives. Conserver leurs notices et celles des distributions de base. Lors d’une redistribution d’images, fournir les sources correspondantes et mentions selon leurs obligations ; ce fichier ne remplace pas leurs licences. GnuPG est appelé localement, pas incorporé au serveur de messagerie.
 

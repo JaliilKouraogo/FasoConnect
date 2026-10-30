@@ -62,7 +62,7 @@ services:
       OIDC_SECRET: ${OIDC_SECRET:?Configurer .env}
       ADMIN_OIDC_SECRET: ${ADMIN_OIDC_SECRET:?Configurer .env}
       PROVISIONER_SECRET: ${PROVISIONER_SECRET:?Configurer .env}
-    volumes: ["./config/realm.json:/opt/keycloak/data/import/fasoconnect-realm.json:ro"]
+    volumes: ["./config/realm.json:/opt/keycloak/data/import/fasoconnect-realm.json:ro", "./config/keycloak-theme/fasoconnect:/opt/keycloak/themes/fasoconnect:ro"]
     depends_on:
       identity-db: {condition: service_healthy}
     networks: [backend]
@@ -121,7 +121,7 @@ services:
       NODE_EXTRA_CA_CERTS: /trust/root.crt
       AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-30}
     volumes: ["trust:/trust:ro", "admin_auth:/admin-auth"]
-    networks: [backend]
+    networks: [backend, local-ai]
     depends_on:
       synapse: {condition: service_healthy}
     healthcheck:
@@ -142,6 +142,26 @@ services:
       timeout: 5s
       retries: 10
     logging: *default-logging
+    restart: unless-stopped
+  ai:
+    image: ollama/ollama:0.40.11
+    mem_limit: 5g
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_NO_CLOUD: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_CONTEXT_LENGTH: "8192"
+      OLLAMA_KEEP_ALIVE: 2m
+    volumes: ["ai_models:/root/.ollama"]
+    networks: [local-ai]
+    healthcheck:
+      test: [CMD, ollama, list]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: none
     restart: unless-stopped
   element:
     profiles: [reference-client]
@@ -170,6 +190,7 @@ services:
     restart: unless-stopped
 networks:
   backend: {internal: true}
+  local-ai: {internal: true}
   edge: {}
 volumes:
   db: {}
@@ -179,3 +200,4 @@ volumes:
   identity_db: {}
   trust: {}
   admin_auth: {}
+  ai_models: {}
