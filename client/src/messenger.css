@@ -3332,8 +3332,42 @@ header .brand-logo-mark {
   }
   aside {
     min-width: 0;
-    max-height: 34dvh;
+    max-height: min(42dvh, 360px);
+    overflow-x: hidden;
     overflow-y: auto;
+  }
+  #rooms {
+    display: block;
+    min-width: 0;
+  }
+  #rooms > .profile-card {
+    display: flex;
+  }
+  #rooms > .assistant-card {
+    display: block;
+  }
+  #rooms > .new-conversation {
+    display: inline-flex;
+    width: auto;
+  }
+  #rooms > h2 {
+    display: block;
+  }
+  #rooms > .conversation-list {
+    display: flex;
+    width: 100%;
+    min-height: 58px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+  }
+  #rooms > .conversation-list > .sidebar-empty {
+    display: block;
+    flex: 0 0 auto;
+    margin: 8px 0;
+  }
+  #rooms > .sidebar-tools {
+    display: flex;
   }
   .chat,
   .messages,
