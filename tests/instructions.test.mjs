@@ -35,8 +35,21 @@ test("Recipients must be unique members, and the priority must be recognized", (
     { ...event.content, recipients: ["@outsider:local"] },
     { ...event.content, recipients: ["@agent:local", "@agent:local"] },
     { ...event.content, priority: "fake" },
+    { ...event.content, recipients: [] },
+    { ...event.content, dossier: " " },
+    { ...event.content, dossier: "x".repeat(121) },
   ])
     assert(!validateInstruction({ ...event, content }, context));
+});
+
+test("Le dossier est facultatif, borné et fait partie du contenu chiffré de l'instruction", () => {
+  assert(
+    validateInstruction(
+      { ...event, content: { ...event.content, dossier: "DOSSIER-FICTIF-01" } },
+      context,
+    ),
+  );
+  assert(validateInstruction(event, context));
 });
 test("An acknowledgement is bound to the instruction, its room, and an actual recipient", () => {
   const instruction = { ...event, id: "$id" };

@@ -333,6 +333,10 @@ form.composer {
   border-radius: 8px;
   font-size: 13px;
 }
+.bubble > button {
+  margin: 8px 10px 0 0;
+  min-height: 40px;
+}
 .attachment-button {
   display: grid;
   place-items: center;
@@ -665,10 +669,14 @@ form.composer {
   form.composer {
     padding: 10px 12px;
     gap: 7px;
+    flex-wrap: wrap;
   }
   .composer textarea {
     min-height: 42px;
     font-size: 14px;
+    min-width: 0;
+    flex-basis: 100%;
+    order: -1;
   }
   .composer button {
     padding: 11px 12px;

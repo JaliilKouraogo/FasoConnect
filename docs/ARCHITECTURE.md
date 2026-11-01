@@ -1,5 +1,13 @@
 # Architecture finale
 
+## Évolution de la version concours
+
+Les dossiers, notes et changements d'avancement des instructions sont des événements applicatifs chiffrés par le même SDK Matrix. Aucun stockage parallèle de contenu n'est ajouté au service administratif. Le navigateur reconstitue le suivi et refuse les références incohérentes, auteurs non autorisés, conflits ou chaînes incomplètes. Les documents et vocaux sont chiffrés avant upload ; seuls leurs destinataires les déchiffrent. La langue parlée d'un vocal reste dans son contenu chiffré.
+
+Les brouillons et identifiants des tentatives restent en mémoire. Une nouvelle tentative réutilise l'événement ou la transaction Matrix, après recontrôle des accès et des appareils. Le scheduler ne relance pas automatiquement les messages. Les clés cryptographiques restent dans le stockage prévu par Rust crypto.
+
+L'extension IA décrite plus bas est historique : son entrée client est retirée et le service administratif renvoie HTTP 410 sans traiter de corps pour `/assistant/api/*`. Ollama est dans le profil facultatif `experimental-ai`, non démarré par défaut.
+
 ```mermaid
 flowchart LR
  U[Client TypeScript PWA / SDK Matrix + Rust crypto] -->|HTTPS / payload chiffré| P[Caddy et PKI locale]

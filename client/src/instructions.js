@@ -14,6 +14,7 @@ export function validateInstruction(event, context) {
       c.body.length <= 16000 &&
       ["normale", "haute", "urgente"].includes(c.priority) &&
       Array.isArray(c.recipients) &&
+      c.recipients.length > 0 &&
       c.recipients.length <= 200 &&
       new Set(c.recipients).size === c.recipients.length &&
       c.recipients.every(
@@ -22,7 +23,15 @@ export function validateInstruction(event, context) {
           context.members.includes(id) &&
           id !== event.sender,
       ) &&
-      (!c.deadline || Number.isFinite(Date.parse(c.deadline))),
+      (!c.deadline || Number.isFinite(Date.parse(c.deadline))) &&
+      (c.dossier_id === undefined ||
+        (typeof c.dossier_id === "string" &&
+          c.dossier_id.startsWith("$") &&
+          c.dossier_id.length <= 255)) &&
+      (c.dossier === undefined ||
+        (typeof c.dossier === "string" &&
+          c.dossier.trim().length > 0 &&
+          c.dossier.length <= 120)),
   );
 }
 export function validateAcknowledgement(event, instruction) {

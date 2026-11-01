@@ -5,9 +5,6 @@ import { Pool } from "pg";
 import * as oidc from "openid-client";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { revoke } from "./revocation.mjs";
-import { createAssistant, validateRequest } from "./assistant.mjs";
-
-const assistant = createAssistant();
 
 const origin = "https://" + process.env.DOMAIN;
 const issuer = origin + "/auth/realms/fasoconnect";
@@ -384,68 +381,8 @@ const server = http.createServer(async (req, res) => {
       );
     }
     if (path.startsWith("/assistant/api/")) {
-      const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
-      if (!token) throw new HttpError(401, "CONNEXION_REQUISE");
-      const authorize = async (room) => {
-        const who = await matrix(
-          "GET",
-          "/_matrix/client/v3/account/whoami",
-          undefined,
-          token,
-        );
-        const enrolled = await pool.query(
-          "SELECT 1 FROM faso_agent_roles WHERE user_id=$1",
-          [who.user_id],
-        );
-        if (!enrolled.rows.length) throw new HttpError(403, "AGENT_NON_ENROLE");
-        if (room) {
-          const frozen = await pool.query(
-            "SELECT 1 FROM faso_frozen_rooms WHERE room_id=$1",
-            [room],
-          );
-          if (frozen.rows.length)
-            throw new HttpError(403, "Utilisez la conversation renouvelée.");
-          const membership = await matrix(
-            "GET",
-            "/_matrix/client/v3/rooms/" +
-              enc(room) +
-              "/state/m.room.member/" +
-              enc(who.user_id),
-            undefined,
-            token,
-          );
-          if (membership.membership !== "join")
-            throw new HttpError(403, "CONVERSATION_NON_REJOINTE");
-        }
-        return who.user_id;
-      };
-      const user = await authorize();
-      if (path === "/assistant/api/status" && req.method === "GET")
-        return send(res, 200, await assistant.status());
-      if (path === "/assistant/api/run" && req.method === "POST") {
-        if (
-          req.headers.origin !== origin ||
-          !req.headers["content-type"]?.startsWith("application/json")
-        )
-          throw new HttpError(403, "ORIGINE_INVALIDE");
-        const request = validateRequest(await body(req, 64000));
-        await authorize(request.roomId);
-        const abort = new AbortController();
-        const cancel = () => abort.abort();
-        res.on("close", cancel);
-        try {
-          return send(
-            res,
-            200,
-            await assistant.run(user, request, abort.signal, () =>
-              authorize(request.roomId),
-            ),
-          );
-        } finally {
-          res.off("close", cancel);
-        }
-      }
-      throw new HttpError(404, "INTROUVABLE");
+      // Version concours : aucun traitement d'extraits dechiffres cote serveur.
+      return send(res, 410, { error: "ASSISTANT_RETIRE_VERSION_CONCOURS" });
     }
     if (path === "/directory") {
       const token = req.headers.authorization?.replace(/^Bearer /, "");

@@ -1,5 +1,13 @@
 # Sécurité — synthèse de concours
 
+## Mise à jour : dossiers, suivi et vocal
+
+Le titre et la référence sensibles d'un dossier, ses notes, ses documents et les changements d'état des instructions sont des contenus Matrix chiffrés, pas des événements d'état visibles. Les membres du dossier sont ceux de sa conversation. Le suivi est calculé côté appareil ; il ne constitue pas une preuve juridique. Les conflits et références manquantes empêchent une fausse clôture. Un historique des habilitations reste à concevoir : les rôles actuellement disponibles sont utilisés pour valider les auteurs.
+
+Les vocaux sont enregistrés et préécoutés localement, puis chiffrés avant transfert. Pas de transcription ni d'analyse serveur. Les brouillons et nouvelles tentatives restent en mémoire ; une reprise exige un nouveau contrôle des droits. Recharger ou quitter peut perdre ces brouillons. Aucun transfert automatique vers un salon renouvelé.
+
+L'ancienne extension IA décrite en fin de document n'est plus active dans la version concours : entrée client retirée, API HTTP 410 avant traitement du corps, Ollama hors du démarrage par défaut. Les preuves historiques de cette extension ne constituent pas une fonction de la version actuelle.
+
 ## Protections
 
 Le client utilise le SDK Matrix et Rust crypto. Créations de salons forcées en privé, chiffrées, sans fédération, historique joined. Le module refuse les événements de contenu non chiffrés et les états non autorisés. Les fichiers sont chiffrés avant upload avec matrix-encrypt-attachment et déchiffrés uniquement dans le navigateur ; aucune miniature ni prévisualisation distante. Limite 10 Mo.

@@ -1,5 +1,7 @@
 # Assistant et agents IA locaux
 
+> Document historique. L'assistant n'est plus actif dans la version concours : les boutons sont retirés, l'API renvoie HTTP 410 sans traiter les extraits et Ollama n'est pas démarré par défaut. Installer le modèle ne réactive pas cette fonction. Les instructions suivantes concernent l'ancienne expérimentation et ne doivent pas être suivies pour tester la version concours.
+
 FasoConnect utilise **Ollama 0.40.11 et Qwen 3.5 2B**. Le moteur est un service Docker dédié, sans port publié, sur un réseau Docker `internal: true` distinct de celui de Matrix. `OLLAMA_NO_CLOUD=1` désactive les fonctions cloud. Le modèle est fixé côté serveur ; le navigateur ne choisit ni une adresse de fournisseur ni un modèle distant.
 
 ## Installation

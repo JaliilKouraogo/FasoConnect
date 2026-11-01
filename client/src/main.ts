@@ -1,18 +1,30 @@
 import loglevel from "loglevel";
 import "./style.css";
 import "./messenger.css";
-import { openAssistant } from "./assistant";
 import { installUpdates } from "./updates";
+import { createSafeSender } from "./safe-sender.js";
+import { openVoiceRecorder } from "./voice-recorder";
+import {
+  DOSSIER_EVENT,
+  DOSSIER_NOTE_EVENT,
+  validateDossier,
+  validateDossierNote,
+} from "./dossiers.js";
 import {
   selectedInvitees,
   waitForSyncedRoom,
   partitionConversations,
 } from "./conversations.js";
-import { collectAssistantContext } from "./assistant-context.js";
 import {
   validateInstruction,
   validateAcknowledgement,
 } from "./instructions.js";
+import {
+  WORKFLOW_EVENT,
+  WORKFLOW_LABELS,
+  instructionProgress,
+  allowedTransitions,
+} from "./instruction-workflow.js";
 import * as sdk from "matrix-js-sdk";
 import {
   encryptAttachment,
@@ -57,7 +69,10 @@ let client: any,
   lockRelease: any,
   query = "";
 let successors: any[] = [];
+let safeSender: ReturnType<typeof createSafeSender>;
 const controls = new Set<HTMLButtonElement>();
+// Brouillons en mémoire seulement : aucun contenu administratif en clair sur disque.
+const drafts = new Map<string, string>();
 function button(text: string, action: () => any, cls = "") {
   const b = node("button", text, cls) as HTMLButtonElement;
   b.onclick = async () => {
@@ -82,6 +97,25 @@ function button(text: string, action: () => any, cls = "") {
   };
   return b;
 }
+function updateSendControls() {
+  const room = client?.getRoom(roomId);
+  const locked =
+    !sessionStorage.getItem("faso_session") ||
+    !room ||
+    room.getMyMembership() !== "join" ||
+    archivedRoom(room);
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-send-action]")
+    .forEach((b) => {
+      b.disabled = busy || locked;
+    });
+}
+function sendButton(text: string, action: () => any, cls = "") {
+  const b = button(text, action, cls);
+  b.dataset.sendAction = "true";
+  b.disabled = busy;
+  return b;
+}
 function panel(title: string) {
   closePanel();
   const p = node("div", undefined, "panel");
@@ -96,38 +130,6 @@ function closePanel() {
   const p = document.querySelector(".panel");
   p?.dispatchEvent(new Event("faso-close"));
   p?.remove();
-}
-function showAssistant() {
-  const id = roomId,
-    room = client.getRoom(id),
-    context = collectAssistantContext(
-      room?.getLiveTimeline().getEvents() || [],
-      (event) => validInstruction(event, room),
-    );
-  return openAssistant({
-    token: client.getAccessToken(),
-    roomId: id,
-    context,
-    panel,
-    locked: () =>
-      !client?.getAccessToken() ||
-      roomId !== id ||
-      (id && client.getRoom(id)?.getMyMembership() !== "join") ||
-      successors.some((s) => s.old === id),
-    insertDraft: (answer) => {
-      const draft = document.getElementById(
-        "message-draft",
-      ) as HTMLTextAreaElement;
-      if (!draft) throw new Error("Ouvrez une conversation.");
-      if (
-        draft.value.trim() &&
-        !confirm("Remplacer votre brouillon actuel par cette proposition ?")
-      )
-        return;
-      draft.value = answer;
-      draft.focus();
-    },
-  });
 }
 function linkLogin() {
   location.href =
@@ -148,6 +150,8 @@ function role(user: string) {
 }
 async function failLocked() {
   closePanel();
+  drafts.clear();
+  safeSender?.clear();
   sessionStorage.removeItem("faso_session");
   client?.stopClient();
   controls.forEach((b) => (b.disabled = true));
@@ -175,6 +179,8 @@ async function poll() {
         successors.find((x) => x.old === roomId)?.next !== previous
       ) {
         reply = null;
+        drafts.delete(roomId);
+        safeSender?.clear(roomId);
         await openRoom(roomId);
         status(
           "Conversation renouvelée. Le brouillon de l’ancien salon a été effacé sans envoi.",
@@ -339,10 +345,7 @@ function rooms() {
   }
   const tools = node("nav", undefined, "sidebar-tools");
   tools.setAttribute("aria-label", "Outils de messagerie");
-  tools.append(
-    button("✦ Assistant IA", showAssistant, "assistant-entry"),
-    button("Annuaire des collègues", showDirectory),
-  );
+  tools.append(button("Annuaire des collègues", showDirectory));
   const more = node("details", undefined, "more-tools") as HTMLDetailsElement;
   more.open = Boolean(spaceOpen);
   more.append(
@@ -545,6 +548,8 @@ function showInvite() {
 }
 function showChatOptions() {
   const p = panel("Options de la conversation");
+  p.append(button("Dossiers administratifs", showDossiers));
+  p.append(button("Suivre les instructions et dossiers", showInstructionBoard));
   if (["responsable", "administrateur"].includes(role(client.getUserId())))
     p.append(button("Créer une instruction de service", instruction));
   p.append(
@@ -690,8 +695,10 @@ async function createRoom() {
   );
   submit.textContent = "Ouvrir la conversation";
 }
-async function verifiedRecipients() {
-  const room = client.getRoom(roomId);
+async function verifiedRecipients(targetRoomId = roomId) {
+  const room = client.getRoom(targetRoomId);
+  if (room?.getMyMembership() !== "join" || archivedRoom(room))
+    throw new Error("Cette conversation n’est plus active pour votre compte.");
   if (!room?.hasEncryptionStateEvent())
     throw new Error("Envoi bloqué : conversation non chiffrée.");
   if (room.currentState.getStateEvents("m.room.tombstone", ""))
@@ -711,19 +718,20 @@ async function verifiedRecipients() {
     }
   }
 }
-async function send(type: string, content: any) {
+async function send(type: string, content: any, targetRoomId = roomId) {
   if (!navigator.onLine)
     throw new Error(
       "Hors ligne. Le brouillon reste uniquement dans cette fenêtre.",
     );
   if (busy) throw new Error("Un envoi est déjà en cours.");
   busy = true;
+  updateSendControls();
   try {
-    await verifiedRecipients();
-    await client.sendEvent(roomId, type, content);
+    await safeSender.send(targetRoomId, type, content);
     status("Événement chiffré envoyé.");
   } finally {
     busy = false;
+    updateSendControls();
   }
 }
 let roomOpenGeneration = 0;
@@ -735,6 +743,7 @@ async function openRoom(id: string) {
   root.classList.add("room-open");
   $("chat").classList.remove("empty-chat");
   roomId = id;
+  reply = null;
   query = "";
   controls.clear();
   rooms();
@@ -755,6 +764,8 @@ async function openRoom(id: string) {
   const options = button("⋯", showChatOptions, "chat-menu");
   options.setAttribute("aria-label", "Options de la conversation");
   actions.append(
+    button("Dossiers", showDossiers),
+    button("Instructions", showInstructionBoard),
     button("Participants", showMembers),
     button("+ Inviter", showInvite, "invite-action"),
     button("Rechercher", () => {
@@ -810,10 +821,16 @@ async function openRoom(id: string) {
   const compose = node("form", undefined, "composer") as HTMLFormElement;
   const input = node("textarea") as HTMLTextAreaElement;
   input.id = "message-draft";
+  input.value = drafts.get(id) || "";
+  input.oninput = () => {
+    if (input.value) drafts.set(id, input.value);
+    else drafts.delete(id);
+  };
   input.placeholder = "Votre message…";
   input.setAttribute("aria-label", "Message");
   const submit = node("button", "Envoyer", "primary") as HTMLButtonElement;
   submit.type = "submit";
+  submit.dataset.sendAction = "true";
   controls.add(submit);
   const blocked = archivedRoom(room);
   input.disabled = blocked;
@@ -827,11 +844,15 @@ async function openRoom(id: string) {
     if (!input.value.trim()) return;
     submit.disabled = true;
     try {
-      const body: any = { msgtype: "m.text", body: input.value };
+      const submitted = input.value;
+      const body: any = { msgtype: "m.text", body: submitted };
       if (reply)
         body["m.relates_to"] = { "m.in_reply_to": { event_id: reply } };
-      await send("m.room.message", body);
-      input.value = "";
+      await send("m.room.message", body, id);
+      if (input.value === submitted) {
+        input.value = "";
+        drafts.delete(id);
+      }
       reply = null;
     } catch (e: any) {
       status(humanError(e));
@@ -848,20 +869,7 @@ async function openRoom(id: string) {
     try {
       const selected = file.files?.[0];
       if (!selected) return;
-      if (selected.size > 10 * 1024 * 1024)
-        throw new Error("Fichier limité à 10 Mo.");
-      await verifiedRecipients();
-      const encrypted = await encryptAttachment(await selected.arrayBuffer());
-      const uploaded = await client.uploadContent(new Blob([encrypted.data]), {
-        type: "application/octet-stream",
-        includeFilename: false,
-      });
-      await send("m.room.message", {
-        msgtype: "m.file",
-        body: selected.name,
-        info: { mimetype: selected.type, size: selected.size },
-        file: { ...encrypted.info, url: uploaded.content_uri },
-      });
+      await uploadFile(selected, id);
     } catch (e: any) {
       status(humanError(e));
     } finally {
@@ -878,11 +886,51 @@ async function openRoom(id: string) {
   attach.title = "Joindre un fichier";
   attach.setAttribute("aria-label", "Joindre un fichier");
   compose.prepend(attach);
+  const voice = button("Message vocal", () =>
+    openVoiceRecorder({
+      panel,
+      button,
+      node,
+      upload: async (clip: Blob, info: any) => {
+        if (!navigator.onLine)
+          throw new Error(
+            "Connexion nécessaire pour envoyer le vocal. Il reste disponible dans cette fenêtre.",
+          );
+        await verifiedRecipients(id);
+        const encrypted = await encryptAttachment(await clip.arrayBuffer());
+        const uploaded = await client.uploadContent(
+          new Blob([encrypted.data]),
+          { type: "application/octet-stream", includeFilename: false },
+        );
+        await send(
+          "m.room.message",
+          {
+            msgtype: "m.audio",
+            body: "Message vocal",
+            info: {
+              mimetype: clip.type,
+              size: clip.size,
+              duration: info.duration,
+            },
+            voice_language: info.language,
+            file: { ...encrypted.info, url: uploaded.content_uri },
+          },
+          id,
+        );
+      },
+    }),
+  );
+  voice.type = "button";
+  voice.disabled = blocked;
+  compose.prepend(voice);
   chat.append(compose, file);
   renderMessages();
 }
 function validInstruction(event: any, room: any) {
   return (
+    event.isEncrypted() &&
+    !event.isDecryptionFailure() &&
+    !event.isRedacted() &&
     event.getType() === "bf.fasoconnect.instruction" &&
     validateInstruction(
       {
@@ -891,12 +939,455 @@ function validInstruction(event: any, room: any) {
         content: event.getContent(),
       },
       {
-        roomId: roomId,
+        roomId: room.roomId,
         members: room.getJoinedMembers().map((m: any) => m.userId),
         role: role(event.getSender()),
         power: room.currentState.getMember(event.getSender())?.powerLevel || 0,
       },
     )
+  );
+}
+function workflowEvent(event: any) {
+  return {
+    id: event.getId(),
+    roomId: event.getRoomId(),
+    sender: event.getSender(),
+    type: event.getType(),
+    content: event.getContent(),
+    ts: event.getTs(),
+    encrypted:
+      event.isEncrypted() &&
+      !event.isDecryptionFailure() &&
+      !event.isRedacted(),
+  };
+}
+function dossierContext(room: any) {
+  const members = room.getJoinedMembers().map((m: any) => m.userId);
+  return {
+    roomId: room.roomId,
+    members,
+    managers: members.filter(
+      (id: string) =>
+        ["responsable", "administrateur"].includes(role(id)) &&
+        (room.currentState.getMember(id)?.powerLevel || 0) >= 50,
+    ),
+  };
+}
+function roomDossiers(room: any) {
+  return room
+    .getLiveTimeline()
+    .getEvents()
+    .filter((event: any) =>
+      validateDossier(workflowEvent(event), dossierContext(room)),
+    );
+}
+function showDossiers() {
+  const room = client.getRoom(roomId);
+  if (!room)
+    throw new Error("Ouvrez une conversation pour consulter ses dossiers.");
+  const p = panel("Dossiers de la conversation");
+  p.append(
+    node(
+      "p",
+      "Chaque dossier partage les participants de cette conversation. Sa référence, son titre et ses notes sont chiffrés. Seuls les éléments chargés sur cet appareil sont affichés.",
+    ),
+  );
+  const dossiers = roomDossiers(room);
+  if (!dossiers.length)
+    p.append(node("p", "Aucun dossier disponible dans les messages chargés."));
+  for (const event of dossiers)
+    p.append(
+      button(
+        `${event.getContent().reference} · ${event.getContent().title}`,
+        () => showDossier(event, room),
+      ),
+    );
+  if (
+    !archivedRoom(room) &&
+    dossierContext(room).managers.includes(client.getUserId())
+  )
+    p.append(button("Ouvrir un dossier", () => createDossier(room), "primary"));
+  p.append(
+    button("Charger les dossiers précédents", async () => {
+      await client.scrollback(room, 100);
+      if (roomId !== room.roomId)
+        throw new Error("La conversation ouverte a changé.");
+      showDossiers();
+    }),
+  );
+}
+function createDossier(room: any) {
+  const p = panel("Ouvrir un dossier chiffré");
+  const reference = node("input") as HTMLInputElement,
+    title = node("input") as HTMLInputElement,
+    description = node("textarea") as HTMLTextAreaElement;
+  for (const [field, id, label, max] of [
+    [reference, "reference", "Référence du dossier", 60],
+    [title, "title", "Titre du dossier", 120],
+    [description, "description", "Description (facultative)", 4000],
+  ] as const) {
+    field.id = "dossier-" + id;
+    field.maxLength = max;
+    const text = node("label", label);
+    text.setAttribute("for", field.id);
+    p.append(text, field);
+  }
+  p.append(
+    node(
+      "p",
+      "Les participants de la conversation auront accès aux nouveaux éléments du dossier ; aucun nouveau membre n’est ajouté.",
+    ),
+    sendButton(
+      "Créer le dossier",
+      async () => {
+        if (!reference.value.trim() || !title.value.trim())
+          throw new Error("La référence et le titre sont obligatoires.");
+        if (!dossierContext(room).managers.includes(client.getUserId()))
+          throw new Error("Vos droits ont changé.");
+        await send(
+          DOSSIER_EVENT,
+          {
+            reference: reference.value.trim(),
+            title: title.value.trim(),
+            description: description.value.trim(),
+          },
+          room.roomId,
+        );
+        showDossiers();
+      },
+      "primary",
+    ),
+  );
+}
+function showDossier(event: any, room: any) {
+  if (!validateDossier(workflowEvent(event), dossierContext(room)))
+    throw new Error("Dossier indisponible ou droits modifiés.");
+  const c = event.getContent(),
+    p = panel(`${c.reference} · ${c.title}`);
+  p.append(node("p", c.description || "Aucune description."));
+  const events = room.getLiveTimeline().getEvents(),
+    descriptor = workflowEvent(event);
+  p.append(node("h3", "Instructions"));
+  const linked = events.filter(
+    (e: any) =>
+      validInstruction(e, room) && e.getContent().dossier_id === event.getId(),
+  );
+  if (!linked.length)
+    p.append(node("p", "Aucune instruction chargée pour ce dossier."));
+  for (const task of linked) {
+    const card = node("article", undefined, "workflow-card");
+    card.append(node("h4", task.getContent().subject));
+    renderInstructionProgress(card, task, room, events);
+    p.append(card);
+  }
+  p.append(node("h3", "Notes et comptes rendus"));
+  const notes = events.filter((e: any) =>
+    validateDossierNote(workflowEvent(e), descriptor, dossierContext(room)),
+  );
+  if (!notes.length)
+    p.append(node("p", "Aucune note chargée pour ce dossier."));
+  for (const note of notes)
+    p.append(
+      node("p", `${displayName(note.getSender())} · ${note.getContent().body}`),
+    );
+  p.append(node("h3", "Documents"));
+  const documents = events.filter(
+    (e: any) =>
+      e.isEncrypted() &&
+      !e.isDecryptionFailure() &&
+      !e.isRedacted() &&
+      e.getType() === "m.room.message" &&
+      e.getContent().file &&
+      e.getContent().dossier_id === event.getId(),
+  );
+  if (!documents.length)
+    p.append(node("p", "Aucun document chargé pour ce dossier."));
+  for (const file of documents)
+    p.append(
+      button(file.getContent().body || "Document", () =>
+        download(file.getContent()),
+      ),
+    );
+  if (!archivedRoom(room) && room.getMyMembership() === "join") {
+    const actions = node("div", undefined, "actions");
+    if (dossierContext(room).managers.includes(client.getUserId()))
+      actions.append(
+        button("Ajouter une instruction", () => instruction(event)),
+      );
+    actions.append(
+      button("Ajouter une note", () => {
+        const form = panel("Note du dossier"),
+          field = node("textarea") as HTMLTextAreaElement;
+        field.maxLength = 4000;
+        field.setAttribute("aria-label", "Contenu de la note");
+        form.append(
+          node("p", `${c.reference} · ${c.title}`),
+          field,
+          sendButton(
+            "Publier la note chiffrée",
+            async () => {
+              if (!field.value.trim())
+                throw new Error("Rédigez une note avant de la publier.");
+              await send(
+                DOSSIER_NOTE_EVENT,
+                { dossier_id: event.getId(), body: field.value.trim() },
+                room.roomId,
+              );
+              showDossier(event, room);
+            },
+            "primary",
+          ),
+        );
+      }),
+    );
+    p.append(actions);
+    const file = node("input") as HTMLInputElement;
+    file.type = "file";
+    file.setAttribute("aria-label", "Document du dossier, 10 Mo maximum");
+    p.append(
+      file,
+      sendButton("Joindre le document chiffré", async () => {
+        if (!file.files?.[0]) throw new Error("Choisissez un document.");
+        await uploadFile(file.files[0], room.roomId, {
+          dossier_id: event.getId(),
+        });
+        showDossier(event, room);
+      }),
+    );
+  }
+  p.append(
+    button("Actualiser le dossier", () => showDossier(event, room)),
+    button("Tous les dossiers", showDossiers),
+  );
+}
+function workflowInstruction(event: any) {
+  return {
+    id: event.getId(),
+    roomId: event.getRoomId(),
+    sender: event.getSender(),
+    content: event.getContent(),
+  };
+}
+const progressButtons = {
+  en_cours: "Commencer le travail",
+  a_valider: "Soumettre au responsable",
+  termine: "Valider le travail",
+  a_reprendre: "Demander une reprise",
+};
+function renderInstructionProgress(
+  container: HTMLElement,
+  event: any,
+  room: any,
+  events: any[],
+) {
+  const instruction = workflowInstruction(event);
+  const progress = instructionProgress(instruction, events.map(workflowEvent));
+  const section = node("section", undefined, "instruction-progress");
+  section.setAttribute("aria-label", "Suivi de réalisation de l’instruction");
+  if (!event.getId()?.startsWith("$")) {
+    section.append(node("p", "Publication de l’instruction en cours…"));
+    container.append(section);
+    return;
+  }
+  const opaque = events.some(
+    (e: any) =>
+      e.getTs() >= event.getTs() &&
+      e.isEncrypted() &&
+      !e.isRedacted() &&
+      (e.isDecryptionFailure() || e.getType() === "m.room.encrypted"),
+  );
+  if (opaque)
+    section.append(
+      node(
+        "p",
+        "Des messages récents ne sont pas encore déchiffrés. Le suivi ne peut pas être confirmé.",
+        "workflow-warning",
+      ),
+    );
+  section.append(
+    node(
+      "strong",
+      `Exécutions validées : ${progress.completed} / ${progress.items.length}`,
+    ),
+  );
+  if (progress.closed && !opaque)
+    section.append(
+      node("p", "Tous les travaux ont été validés par le responsable."),
+    );
+  for (const item of progress.items) {
+    const row = node("div", undefined, "instruction-progress-row");
+    row.append(
+      node(
+        "p",
+        `${displayName(item.recipient)} · ${WORKFLOW_LABELS[item.status]}`,
+      ),
+    );
+    if (item.conflict || item.missingHistory) {
+      row.append(
+        node(
+          "p",
+          item.conflict
+            ? "Décisions concurrentes : faites le point avec le responsable avant de publier une nouvelle instruction."
+            : "Historique incomplet : chargez les messages précédents pour reconstituer ce suivi.",
+          "workflow-warning",
+        ),
+      );
+    } else if (
+      !opaque &&
+      !archivedRoom(room) &&
+      room.getMyMembership() === "join"
+    ) {
+      for (const next of allowedTransitions(
+        item.status,
+        client.getUserId(),
+        instruction,
+        item.recipient,
+      )) {
+        row.append(
+          button(progressButtons[next], () => {
+            const target = room.roomId,
+              previous = item.previousId;
+            const p = panel(progressButtons[next]);
+            p.append(
+              node(
+                "p",
+                `${event.getContent().subject} · ${displayName(item.recipient)}`,
+              ),
+            );
+            const label = node(
+              "label",
+              next === "a_reprendre"
+                ? "Motif de reprise (obligatoire)"
+                : "Commentaire (facultatif)",
+            );
+            const comment = node("textarea") as HTMLTextAreaElement;
+            comment.id = "workflow-comment";
+            comment.maxLength = 2000;
+            label.setAttribute("for", comment.id);
+            p.append(
+              label,
+              comment,
+              sendButton(
+                "Confirmer",
+                async () => {
+                  if (next === "a_reprendre" && !comment.value.trim())
+                    throw new Error("Expliquez ce qui doit être repris.");
+                  const currentRoom = client.getRoom(target);
+                  const currentEvents = currentRoom
+                    .getLiveTimeline()
+                    .getEvents();
+                  const original = currentEvents.find(
+                    (e: any) => e.getId() === instruction.id,
+                  );
+                  if (!original || !validInstruction(original, currentRoom))
+                    throw new Error(
+                      "Instruction indisponible ou droits modifiés.",
+                    );
+                  const current = instructionProgress(
+                    instruction,
+                    currentEvents.map(workflowEvent),
+                  ).items.find((x: any) => x.recipient === item.recipient);
+                  if (
+                    !current ||
+                    current.conflict ||
+                    current.missingHistory ||
+                    current.previousId !== previous ||
+                    !allowedTransitions(
+                      current.status,
+                      client.getUserId(),
+                      instruction,
+                      item.recipient,
+                    ).includes(next)
+                  )
+                    throw new Error(
+                      "Le suivi a changé. Fermez cette fenêtre et consultez son état actuel.",
+                    );
+                  await send(
+                    WORKFLOW_EVENT,
+                    {
+                      instruction_id: instruction.id,
+                      recipient: item.recipient,
+                      status: next,
+                      previous_id: previous,
+                      ...(comment.value.trim()
+                        ? { comment: comment.value.trim() }
+                        : {}),
+                    },
+                    target,
+                  );
+                  closePanel();
+                  renderMessages();
+                },
+                "primary",
+              ),
+            );
+            comment.focus();
+          }),
+        );
+      }
+    }
+    if (item.history.length) {
+      const details = node("details");
+      details.append(node("summary", "Voir le suivi"));
+      for (const change of item.history)
+        details.append(
+          node(
+            "p",
+            `${displayName(change.sender)} · ${WORKFLOW_LABELS[change.content.status]}${change.content.comment ? " — " + change.content.comment : ""}`,
+          ),
+        );
+      row.append(details);
+    }
+    section.append(row);
+  }
+  container.append(section);
+}
+function showInstructionBoard() {
+  const room = client.getRoom(roomId);
+  if (!room)
+    throw new Error("Ouvrez une conversation pour consulter ses instructions.");
+  const p = panel("Instructions et dossiers"),
+    events = room.getLiveTimeline().getEvents();
+  p.append(
+    node(
+      "p",
+      "Suivi calculé sur cet appareil à partir des messages chargés et déchiffrés. Les accusés de prise de connaissance restent distincts du travail réalisé.",
+    ),
+  );
+  p.append(button("Actualiser le suivi", showInstructionBoard));
+  const records = events.filter((e: any) => validInstruction(e, room));
+  const dossiers = roomDossiers(room);
+  const groups = new Map<string, any[]>();
+  for (const event of records) {
+    const c = event.getContent(),
+      dossier = dossiers
+        .find((d: any) => d.getId() === c.dossier_id)
+        ?.getContent();
+    const name = dossier
+      ? `${dossier.reference} · ${dossier.title}`
+      : c.dossier || (c.dossier_id ? "Dossier non chargé" : "Sans dossier");
+    groups.set(name, [...(groups.get(name) || []), event]);
+  }
+  if (!records.length)
+    p.append(
+      node("p", "Aucune instruction disponible dans les messages chargés."),
+    );
+  for (const [name, instructions] of groups) {
+    p.append(node("h3", name));
+    for (const event of instructions) {
+      const card = node("article", undefined, "workflow-card");
+      card.append(node("h4", event.getContent().subject));
+      renderInstructionProgress(card, event, room, events);
+      p.append(card);
+    }
+  }
+  p.append(
+    button("Charger les instructions précédentes", async () => {
+      await client.scrollback(room, 100);
+      if (roomId !== room.roomId)
+        throw new Error("La conversation ouverte a changé.");
+      showInstructionBoard();
+    }),
   );
 }
 function renderMessages() {
@@ -926,10 +1417,25 @@ function renderMessages() {
   for (const event of events) {
     if (event.isState()) continue;
     const c = event.getContent();
-    if (event.getType() === "bf.fasoconnect.ack") continue;
+    if (
+      ["bf.fasoconnect.ack", WORKFLOW_EVENT, DOSSIER_NOTE_EVENT].includes(
+        event.getType(),
+      )
+    )
+      continue;
     if (
       query &&
-      !((c.body || "") + " " + (c.subject || "")).toLowerCase().includes(query)
+      !(
+        (c.body || "") +
+        " " +
+        (c.subject || "") +
+        " " +
+        (c.title || "") +
+        " " +
+        (c.reference || "")
+      )
+        .toLowerCase()
+        .includes(query)
     )
       continue;
     const b = node(
@@ -956,6 +1462,12 @@ function renderMessages() {
           "Impossible de déchiffrer : clés manquantes ou appareil non vérifié.",
         ),
       );
+    } else if (validateDossier(workflowEvent(event), dossierContext(room))) {
+      b.append(
+        node("strong", `Dossier ${c.reference}`),
+        node("p", c.title),
+        button("Ouvrir le dossier", () => showDossier(event, room)),
+      );
     } else if (validInstruction(event, room)) {
       b.classList.add("instruction");
       b.append(
@@ -965,10 +1477,13 @@ function renderMessages() {
           "div",
           "Priorité : " +
             c.priority +
-            (c.deadline ? " · Échéance : " + c.deadline : ""),
+            (c.deadline
+              ? " · Échéance : " + new Date(c.deadline).toLocaleString("fr-FR")
+              : ""),
           "priority",
         ),
       );
+      if (c.dossier) b.append(node("p", "Dossier : " + c.dossier, "meta"));
       const confirmations = new Set(
         events
           .filter(
@@ -996,13 +1511,14 @@ function renderMessages() {
         !confirmations.has(client.getUserId())
       )
         b.append(
-          button("J’ai pris connaissance", () =>
+          sendButton("J’ai pris connaissance", () =>
             send("bf.fasoconnect.ack", {
               instruction_id: event.getId(),
               acknowledged: true,
             }),
           ),
         );
+      renderInstructionProgress(b, event, room, events);
     } else if (event.getType() === "bf.fasoconnect.instruction") {
       b.append(
         node("p", "Instruction rejetée : auteur, rôle ou contenu incohérent."),
@@ -1013,6 +1529,70 @@ function renderMessages() {
       b.append(node("div", c.body || "Message"));
       if (c.file)
         b.append(button("Télécharger et déchiffrer", () => download(c)));
+      if (c.msgtype === "m.audio" && c.file) {
+        const labels = {
+          mos: "Mooré",
+          dyu: "Dioula",
+          ff: "Fulfuldé",
+          fr: "Français",
+          other: "Autre langue",
+        };
+        b.append(
+          node(
+            "p",
+            "Vocal · " + (labels[c.voice_language] || "Langue non précisée"),
+          ),
+        );
+        b.append(
+          button("Déchiffrer et écouter", async () => {
+            const bytes = await decryptMedia(c);
+            const mime = /^audio\/(webm|ogg|mp4|mpeg|wav)(;.*)?$/.test(
+              c.info?.mimetype,
+            )
+              ? c.info.mimetype
+              : "audio/webm";
+            const audio = node("audio") as HTMLAudioElement;
+            audio.controls = true;
+            const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+            audio.src = url;
+            b.append(audio);
+            audio.addEventListener("ended", () => URL.revokeObjectURL(url), {
+              once: true,
+            });
+            setTimeout(() => URL.revokeObjectURL(url), 300000);
+            await audio.play();
+          }),
+        );
+      }
+      if (event.status) {
+        b.append(
+          node(
+            "p",
+            event.status === "not_sent"
+              ? "Envoi non confirmé. Une nouvelle tentative est nécessaire."
+              : "Envoi en cours…",
+            "meta",
+          ),
+        );
+        if (event.status === "not_sent") {
+          b.append(
+            button("Réessayer cet envoi", () =>
+              send(event.getType(), event.getContent(), event.getRoomId()),
+            ),
+            button("Abandonner cette tentative", () => {
+              safeSender.discard(
+                event.getRoomId(),
+                event.getType(),
+                event.getContent(),
+              );
+              renderMessages();
+              status(
+                "Tentative abandonnée. Un message déjà reçu par le serveur ne peut pas être annulé par cette action.",
+              );
+            }),
+          );
+        }
+      }
       b.append(
         button("Répondre", () => {
           reply = event.getId();
@@ -1024,7 +1604,32 @@ function renderMessages() {
   }
   box.scrollTop = box.scrollHeight;
 }
-async function download(c: any) {
+async function uploadFile(selected: File, target: string, extra = {}) {
+  if (selected.size > 10 * 1024 * 1024)
+    throw new Error("Fichier limité à 10 Mo.");
+  if (!navigator.onLine)
+    throw new Error(
+      "Connexion nécessaire pour envoyer un fichier. Le fichier n’a pas été envoyé.",
+    );
+  await verifiedRecipients(target);
+  const encrypted = await encryptAttachment(await selected.arrayBuffer());
+  const uploaded = await client.uploadContent(new Blob([encrypted.data]), {
+    type: "application/octet-stream",
+    includeFilename: false,
+  });
+  await send(
+    "m.room.message",
+    {
+      msgtype: "m.file",
+      body: selected.name,
+      info: { mimetype: selected.type, size: selected.size },
+      file: { ...encrypted.info, url: uploaded.content_uri },
+      ...extra,
+    },
+    target,
+  );
+}
+async function decryptMedia(c: any) {
   const match = /^mxc:\/\/([^/]+)\/(.+)$/.exec(c.file.url);
   if (!match) throw new Error("Référence média invalide");
   const r = await fetch(
@@ -1035,7 +1640,10 @@ async function download(c: any) {
     { headers: { Authorization: "Bearer " + client.getAccessToken() } },
   );
   if (!r.ok) throw new Error("Téléchargement refusé");
-  const bytes = await decryptAttachment(await r.arrayBuffer(), c.file);
+  return decryptAttachment(await r.arrayBuffer(), c.file);
+}
+async function download(c: any) {
+  const bytes = await decryptMedia(c);
   const url = URL.createObjectURL(
     new Blob([bytes], { type: "application/octet-stream" }),
   );
@@ -1045,44 +1653,139 @@ async function download(c: any) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
-function instruction() {
+function instruction(selectedDossier?: any) {
+  if (selectedDossier && selectedDossier.getRoomId() !== roomId)
+    throw new Error(
+      "Ouvrez la conversation du dossier avant d’ajouter une instruction.",
+    );
   if (!["responsable", "administrateur"].includes(role(client.getUserId())))
     throw new Error("Un responsable publie les instructions.");
+  const targetRoomId = roomId;
   const p = panel("Instruction de service"),
     subject = node("input") as HTMLInputElement,
     body = node("textarea") as HTMLTextAreaElement,
     priority = node("select") as HTMLSelectElement,
-    deadline = node("input") as HTMLInputElement;
+    deadline = node("input") as HTMLInputElement,
+    dossier = node("input") as HTMLInputElement;
+  subject.maxLength = 200;
+  body.maxLength = 16000;
+  dossier.maxLength = 120;
+  dossier.placeholder = "Référence du dossier (facultatif, chiffré)";
+  const dossierChoice = node("select") as HTMLSelectElement;
+  dossierChoice.id = "instruction-dossier-choice";
+  const none = node("option", "Aucun dossier existant") as HTMLOptionElement;
+  none.value = "";
+  dossierChoice.append(none);
+  for (const event of roomDossiers(client.getRoom(targetRoomId))) {
+    const option = node(
+      "option",
+      `${event.getContent().reference} · ${event.getContent().title}`,
+    ) as HTMLOptionElement;
+    option.value = event.getId();
+    dossierChoice.append(option);
+  }
+  if (selectedDossier) dossierChoice.value = selectedDossier.getId();
+  const dossierLabel = node("label", "Rattacher à un dossier existant");
+  dossierLabel.setAttribute("for", dossierChoice.id);
+  p.append(dossierLabel, dossierChoice);
   subject.placeholder = "Objet";
   body.placeholder = "Contenu de l’instruction";
   deadline.type = "datetime-local";
+  const recipientsBox = node("fieldset");
+  recipientsBox.append(node("legend", "Agents chargés de l’exécution"));
+  const recipientInputs = client
+    .getRoom(targetRoomId)
+    .getJoinedMembers()
+    .filter((m: any) => m.userId !== client.getUserId())
+    .map((m: any) => {
+      const label = node("label", undefined, "workflow-recipient");
+      const input = node("input") as HTMLInputElement;
+      input.type = "checkbox";
+      input.value = m.userId;
+      input.checked = true;
+      label.append(input, document.createTextNode(displayName(m.userId)));
+      recipientsBox.append(label);
+      return input;
+    });
+  for (const [field, text] of [
+    [subject, "Objet"],
+    [body, "Instruction"],
+    [priority, "Priorité"],
+    [deadline, "Échéance locale (facultative)"],
+    [dossier, "Dossier (facultatif)"],
+  ] as const) {
+    const label = node("label", text);
+    field.id =
+      "instruction-" +
+      (field === subject
+        ? "subject"
+        : field === body
+          ? "body"
+          : field === priority
+            ? "priority"
+            : field === deadline
+              ? "deadline"
+              : "dossier");
+    label.setAttribute("for", field.id);
+    p.append(label, field);
+  }
   for (const value of ["normale", "haute", "urgente"]) {
     const o = node("option", value) as HTMLOptionElement;
     o.value = value;
     priority.append(o);
   }
   p.append(
-    subject,
-    body,
-    priority,
-    deadline,
-    button(
+    recipientsBox,
+    sendButton(
       "Publier chiffré",
       async () => {
         if (!subject.value.trim() || !body.value.trim())
           throw new Error("Objet et contenu requis");
-        const recipients = client
-          .getRoom(roomId)
-          .getJoinedMembers()
-          .map((m: any) => m.userId)
-          .filter((id: string) => id !== client.getUserId());
-        await send("bf.fasoconnect.instruction", {
-          subject: subject.value,
-          body: body.value,
+        const room = client.getRoom(targetRoomId);
+        const recipients = recipientInputs
+          .filter((input: HTMLInputElement) => input.checked)
+          .map((input: HTMLInputElement) => input.value);
+        if (!recipients.length)
+          throw new Error(
+            "Choisissez au moins un agent chargé de l’exécution.",
+          );
+        if (
+          dossierChoice.value &&
+          !roomDossiers(room).some(
+            (event: any) => event.getId() === dossierChoice.value,
+          )
+        )
+          throw new Error(
+            "Le dossier sélectionné n’est plus disponible. Actualisez la conversation.",
+          );
+        const content = {
+          subject: subject.value.trim(),
+          body: body.value.trim(),
           priority: priority.value,
-          deadline: deadline.value || null,
+          deadline: deadline.value
+            ? new Date(deadline.value).toISOString()
+            : null,
           recipients,
-        });
+          ...(dossierChoice.value ? { dossier_id: dossierChoice.value } : {}),
+          ...(dossier.value.trim() ? { dossier: dossier.value.trim() } : {}),
+        };
+        if (
+          !validateInstruction(
+            { roomId: targetRoomId, sender: client.getUserId(), content },
+            {
+              roomId: targetRoomId,
+              members: room.getJoinedMembers().map((m: any) => m.userId),
+              role: role(client.getUserId()),
+              power:
+                room.currentState.getMember(client.getUserId())?.powerLevel ||
+                0,
+            },
+          )
+        )
+          throw new Error(
+            "Vos droits ou les destinataires ont changé. Vérifiez la conversation.",
+          );
+        await send("bf.fasoconnect.instruction", content, targetRoomId);
         p.remove();
       },
       "primary",
@@ -1148,7 +1851,7 @@ function installHelp() {
 }
 function welcome() {
   $("content").innerHTML =
-    `<main class="welcome-layout"><section class="welcome-story"><div class="eyebrow">VOTRE ESPACE DE TRAVAIL</div><h1>Les bons échanges.<br><em>En toute confiance.</em></h1><p>Vos collègues, vos conversations et vos idées.<br>Réunis dans un espace simple et protégé.</p><div class="welcome-tags"><span>Messages privés</span><span>Équipe connectée</span><span>IA locale</span></div><div class="conversation-art" aria-hidden="true"><div class="art-top"><span class="art-avatar">A</span><div><b>Votre équipe</b><small>Une conversation qui avance.</small></div><span class="art-dot"></span></div><div class="art-message">Bonjour ! Le document est prêt pour notre réunion.</div><div class="art-message art-own">Parfait, merci. À tout à l’heure !<span>✓✓</span></div><div class="art-footer"><span>✦</span> Un peu d’aide, beaucoup de simplicité.</div></div><small class="welcome-signature">FasoConnect · Pensé pour vos échanges de service.</small></section><section class="login-card"><div class="eyebrow">HEUREUX DE VOUS RETROUVER</div><h2>Bienvenue chez vous.</h2><p>Connectez-vous pour retrouver votre équipe.</p><div id="welcome-action"></div><div class="login-steps"><span><b>1</b> Votre identifiant et votre mot de passe</span><span><b>2</b> Le code à 6 chiffres de votre téléphone</span></div><details class="login-help"><summary>Première connexion ?</summary><p>Votre administrateur vous remet votre accès. Après avoir choisi votre mot de passe, scannez le QR code affiché avec votre application d’authentification. Elle générera vos codes de connexion.</p><p>Un code ne fonctionne pas ? Vérifiez l’heure automatique du téléphone et attendez le code suivant.</p></details><small>Ce navigateur conserve les clés nécessaires à vos échanges. Utilisez votre appareil personnel et verrouillez votre session.</small></section></main>`;
+    `<main class="welcome-layout"><section class="welcome-story"><div class="eyebrow">VOTRE ESPACE DE TRAVAIL</div><h1>Les bons échanges.<br><em>En toute confiance.</em></h1><p>Vos collègues, vos conversations et vos idées.<br>Réunis dans un espace simple et protégé.</p><div class="welcome-tags"><span>Messages privés</span><span>Dossiers chiffrés</span><span>Vocaux en mooré</span></div><div class="conversation-art" aria-hidden="true"><div class="art-top"><span class="art-avatar">A</span><div><b>Votre équipe</b><small>Une conversation qui avance.</small></div><span class="art-dot"></span></div><div class="art-message">Bonjour ! Le document est prêt pour notre réunion.</div><div class="art-message art-own">Parfait, merci. À tout à l’heure !<span>✓✓</span></div><div class="art-footer"><span>✦</span> Un peu d’aide, beaucoup de simplicité.</div></div><small class="welcome-signature">FasoConnect · Pensé pour vos échanges de service.</small></section><section class="login-card"><div class="eyebrow">HEUREUX DE VOUS RETROUVER</div><h2>Bienvenue chez vous.</h2><p>Connectez-vous pour retrouver votre équipe.</p><div id="welcome-action"></div><div class="login-steps"><span><b>1</b> Votre identifiant et votre mot de passe</span><span><b>2</b> Le code à 6 chiffres de votre téléphone</span></div><details class="login-help"><summary>Première connexion ?</summary><p>Votre administrateur vous remet votre accès. Après avoir choisi votre mot de passe, scannez le QR code affiché avec votre application d’authentification. Elle générera vos codes de connexion.</p><p>Un code ne fonctionne pas ? Vérifiez l’heure automatique du téléphone et attendez le code suivant.</p></details><small>Ce navigateur conserve les clés nécessaires à vos échanges. Utilisez votre appareil personnel et verrouillez votre session.</small></section></main>`;
   $("welcome-action").append(
     button(
       "Se connecter →",
@@ -1217,15 +1920,18 @@ async function main() {
     accessToken: s.access_token,
     userId: s.user_id,
     deviceId: s.device_id,
+    localTimeoutMs: 30000,
+    scheduler: new sdk.MatrixScheduler(() => -1),
+  });
+  safeSender = createSafeSender(client, async (target) => {
+    await client.whoami();
+    await verifiedRecipients(target);
   });
   await client.initRustCrypto({ cryptoDatabasePrefix: "faso-" + s.device_id });
   await directory();
   $("content").innerHTML =
     '<div class="shell"><aside id="rooms" aria-label="Conversations et outils"></aside><main class="chat empty-chat" id="chat"><div class="empty-state"><span class="empty-symbol">F</span><h1>Vos messages</h1><p>Sélectionnez une conversation<br>ou choisissez un contact pour commencer.</p><div id="empty-actions" class="actions"></div><small>Vos échanges sont privés et protégés.</small></div></main></div>';
-  $("empty-actions").append(
-    button("Nouveau message", createRoom, "primary"),
-    button("Demander à l’assistant ✦", showAssistant),
-  );
+  $("empty-actions").append(button("Nouveau message", createRoom, "primary"));
   client.on("sync", (state: string, prev: string, data: any) => {
     status(
       state === "ERROR"
@@ -1247,12 +1953,18 @@ async function main() {
     } else renderMessages();
   });
   client.on("Event.decrypted", () => renderMessages());
+  client.on("Room.localEchoUpdated", () => renderMessages());
   await client.startClient({ initialSyncLimit: 100 });
   setInterval(poll, 5000);
   rooms();
 }
 window.addEventListener("offline", () =>
   status("Hors ligne : le brouillon reste en mémoire, sans envoi automatique."),
+);
+window.addEventListener("online", () =>
+  status(
+    "Connexion retrouvée. Vérifiez vos messages en attente et relancez leur envoi manuellement.",
+  ),
 );
 void installUpdates(() => busy, status);
 main().catch((e: any) => status(humanError(e)));

@@ -1,100 +1,49 @@
-# FasoConnect — Messagerie administrative chiffrée
+# FasoConnect — messagerie administrative souveraine
 
-[![Licence : AGPL v3 ou ultérieure](https://img.shields.io/badge/licence-AGPL--3.0--or--later-blue)](LICENSE)
+Prototype pour le sprint technique du Hackathon 226, édition 2026. Il permet à des agents fictifs de communiquer et de suivre le travail administratif, sur une infrastructure maîtrisée. Niveau d'engagement open source : **Créer**, avec un client et une console originaux reposant sur les bibliothèques Matrix officielles. Aucune cryptographie maison.
 
-FasoConnect est un prototype de messagerie administrative pour le Hackathon 226, édition 2026. Il associe un client web français, une console d’administration et des services locaux Matrix, Keycloak et PostgreSQL.
+## Trois usages
 
-Messagerie administrative fictive pour le Burkina Faso. **Niveau : Créer** : client TypeScript et console originaux, sur Matrix et son chiffrement officiel. Prototype de concours, sans certification de sécurité.
+- **Instructions de service** : exécutants choisis, priorité, échéance, prise de connaissance distincte de l'exécution, travail en cours, soumission, validation ou reprise motivée par l'auteur responsable.
+- **Dossiers** : référence, titre, description, notes, documents et instructions regroupés dans une conversation. Les informations métier sont chiffrées ; les participants sont ceux de la conversation.
+- **Connexion instable et vocal** : brouillons par conversation en mémoire, nouvelle tentative manuelle avec transaction stable et contrôle des droits ; vocal avec préécoute locale, langue parlée choisie, deux minutes et 10 Mo maximum. L'interface reste française, sans traduction automatique.
 
-## Fonctionnalités
+## Architecture et sécurité
 
-- Connexion avec mot de passe et code TOTP, enrôlement contrôlé et rôles agent, responsable et administrateur.
-- Conversations privées, groupes sur invitation, annuaire et vérification des appareils.
-- Messages et pièces jointes chiffrés de bout en bout avec les bibliothèques officielles Matrix.
-- Instructions de service avec accusés de prise de connaissance chiffrés.
-- Révocation d’un agent ou d’un appareil, blocage des anciens salons et création de conversations de remplacement.
-- Application web installable, sauvegarde chiffrée et journal d’administration.
-- Assistant Ollama / Qwen 3.5 2B local : guide, rédaction, synthèse et suivi des actions sur les seuls extraits sélectionnés.
+Le client TypeScript/Vite utilise Matrix JS SDK et Rust crypto pour Olm/Megolm. Synapse stocke les événements et fichiers chiffrés ; Keycloak assure l'enrôlement, le second facteur TOTP et les rôles. PostgreSQL, un service administratif Node.js et Caddy complètent l'instance Docker Compose. Aucun service tiers n'est indispensable à l'exécution ; images et dépendances sont téléchargées à l'installation.
 
-## Installer une nouvelle instance locale
+Les salons sont privés, sur invitation, et les appareils doivent être vérifiés avant envoi. La révocation coupe les identités et jetons, fige les anciens salons et crée des conversations de remplacement. L'administration ne possède pas les clés des messages. L'ancien assistant IA et son analyse d'extraits sont retirés de cette version ; son API renvoie HTTP 410 et Ollama n'est pas démarré par défaut.
 
-Prérequis : Git, Docker avec Docker Compose et Python 3. Les commandes suivantes utilisent PowerShell. Node.js est nécessaire uniquement pour développer et lancer les tests JavaScript hors des conteneurs ; GnuPG est requis pour les sauvegardes chiffrées.
+## Installation locale Windows
+
+Prérequis : Git, Docker Desktop démarré avec Docker Compose, Python 3 et PowerShell. Depuis le dépôt :
 
 ```powershell
-git clone https://github.com/JaliilKouraogo/FasoConnect.git
-cd FasoConnect
-python scripts/configure.py --domain localhost --private-dir "$env:USERPROFILE\Documents\Codex\FasoConnect-prive"
-$cfg = Get-Content local.settings.json -Raw | ConvertFrom-Json
-$env:COMPOSE_ENV_FILES = Join-Path $cfg.privateDirectory '.env'
-docker compose --env-file $env:COMPOSE_ENV_FILES up -d --build
+./Installer-Local.ps1
 ```
 
-Le client est accessible sur https://localhost/service/ et l’administration sur https://localhost/admin/. L’instance écoute uniquement sur cet ordinateur : HTTPS 443 et redirection HTTP 8088. Docker télécharge les images et les paquets pendant l’installation.
+Le script configure les secrets hors du dépôt, construit et démarre les services, crée les identités fictives et prépare la confiance HTTPS dans le profil Windows. Windows peut demander de confirmer l'ajout de l'autorité locale. Ne pas ignorer une alerte de certificat. Voir [Déploiement](docs/DEPLOIEMENT.md) pour les détails et autres environnements.
 
-Le navigateur doit faire confiance à l’autorité de certificat locale Caddy. Suivre le [guide de déploiement](docs/DEPLOIEMENT.md) pour exporter et approuver son certificat public sur la machine de test. Ne pas ignorer une alerte de certificat.
+Messagerie : https://localhost/service/ ; administration : https://localhost/admin/. L'instance écoute sur cet ordinateur uniquement, ports HTTPS 443 et redirection HTTP 8088. `localhost` ne permet pas l'accès depuis un téléphone distant.
 
-Pour créer volontairement les comptes fictifs de démonstration après le démarrage :
+Comptes fictifs : `agent.alpha`, `agent.beta`, `responsable.gamma`, `admin.delta`. Leurs mots de passe temporaires sont dans `.demo-activation.json`, dans le dossier privé indiqué par `local.settings.json`. Première connexion : nouveau mot de passe et TOTP. Aucun secret n'est livré dans le dépôt. Utiliser deux profils de navigateur pour les essais ; vérifier les appareils avant d'échanger. Redémarrage : `./Demarrer.ps1`.
 
-```powershell
-python scripts/demo.py
-```
-
-Les accès sont générés dans le dossier privé. Aucun mot de passe ou secret TOTP n’est livré dans ce dépôt. La première connexion impose un changement de mot de passe et la configuration d’une application d’authentification. Ne pas utiliser les comptes fictifs pour des données réelles.
-
-## Instance de démonstration déjà préparée
-
-Pour installer l’IA locale, lancer `Configurer-IA.ps1`, puis cliquer **✦ Assistant IA** dans la messagerie. Voir le [guide des agents locaux](docs/IA_LOCALE.md) : installation, sélection des messages et confidentialité. Les brouillons ne sont jamais envoyés automatiquement.
-
-Ouvrir https://localhost/service/ ou https://localhost/admin/. Le projet est dans **FasoConnect sur le Bureau** ; raccourcis FasoConnect.url et Administration.url. Pour redémarrer, exécuter Demarrer.ps1.
-
-Le Bureau est dans OneDrive : les secrets et accès fictifs restent dans `Documents/Codex/FasoConnect-prive`. local.settings.json indique ce dossier sans contenir de secret. L’autorité TLS locale a été approuvée dans le profil Windows avec votre accord.
-
-Les chemins et l’état des comptes décrits dans la documentation de recette concernent cette instance précise ; une nouvelle installation génère ses propres secrets et comptes.
-
-## Documentation
-
-Pour écrire à quelqu’un : **Nouveau message → choisir un collègue → Ouvrir la conversation**. Pour ajouter une personne à une conversation existante, utiliser **+ Inviter**. Les invitations reçues sont regroupées dans une boîte dédiée ; les anciens salons restent accessibles sous **Anciennes conversations**. Les groupes de plusieurs collègues sont créés par un responsable ou un administrateur.
-
-| Sujet | Guide |
-|---|---|
-| Architecture et composants | [Architecture](docs/ARCHITECTURE.md) |
-| Installation, comptes et HTTPS | [Déploiement](docs/DEPLOIEMENT.md) |
-| Chiffrement et limites | [Sécurité](docs/SECURITE.md) |
-| Révocation des accès | [Révocation](docs/REVOCATION.md) |
-| Sauvegarde et restauration | [Sauvegarde](docs/SAUVEGARDE_RESTAURATION.md) |
-| Scénarios de démonstration | [Démonstration](docs/DEMO_JURY.md) |
-| Tests réellement effectués | [Vérification](docs/VERIFICATION.md) |
-| Ollama, Qwen et agents IA locaux | [IA locale](docs/IA_LOCALE.md) |
-
-## Vérifier le code
+## Vérifications
 
 ```powershell
 npm ci --prefix client
-npm run --prefix client check
-node --test admin/revocation.test.mjs admin/assistant.test.mjs tests/instructions.test.mjs
+npm run --prefix client build
+node --test admin/*.test.mjs tests/*.test.mjs
 python scripts/check.py
+python -m unittest discover -s scripts -p test_policy.py
 ```
 
-Les tests d’intégration nécessitent une instance locale et des comptes fictifs. Ils peuvent révoquer ces comptes ; lire le [guide de recette](docs/DEMO_JURY.md) avant de les lancer.
+Les tests d'intégration exigent une instance et des comptes exclusivement fictifs. Certains révoquent leurs comptes : lire la [recette](docs/DEMO_JURY.md). Les preuves historiques décrivent une autre installation ; les nouvelles fonctions ne sont pas déclarées qualifiées sur téléphone sans recette réelle.
 
-## Fonctions
+## Limites et sources
 
-PWA française, annuaire authentifié, conversations privées et groupes sur invitation, texte, réponses, fichiers chiffrés de 10 Mo maximum, membres, vérification manuelle des appareils et instructions avec accusés chiffrés. Console avec rôle administrateur, réauthentification récente pour chaque action sensible, code d’activation de quinze minutes à usage unique et récupération contrôlée sans SMS/email.
+Le serveur voit les identités, appartenances, horaires, IP et tailles. Les clés restent dans le navigateur ; leur perte peut rendre l'historique illisible. Aucune suppression distante garantie des copies déjà reçues, valeur juridique automatique des accusés ou certification de sécurité. Historique chargé partiellement, changements de rôles, concurrence et sauvegarde des clés nécessitent une attention particulière. Pas encore de clôture des dossiers ou d'archivage légal. Audit indépendant, accessibilité et téléphones physiques restent à qualifier.
 
-La révocation coupe les identités et sessions, bloque durablement les anciens salons et crée des successeurs avec de nouvelles sessions de chiffrement. Les membres acceptent les invitations ; l’historique reste dans les anciens salons. Un appareil peut conserver ses anciennes copies.
+Sources originales sous [AGPL-3.0-or-later](LICENSE). Composants, versions, licences et liens : [inventaire tiers](THIRD_PARTY_NOTICES.md). Architecture et choix : [Architecture](docs/ARCHITECTURE.md) ; menaces et limites : [Sécurité](docs/SECURITE.md) ; périmètre et acceptation : [Vision produit](docs/VISION_PRODUIT.md). Consulter aussi [Révocation](docs/REVOCATION.md), [Sauvegarde](docs/SAUVEGARDE_RESTAURATION.md) et [Vérification](docs/VERIFICATION.md).
 
-## Preuves et limites
-
-Tests réels : TOTP puis connexion Matrix, groupe chiffré, fichier, instruction et accusé, révocation sur deux appareils, appareil perdu, coupure sans doublon, recherche de témoins, sauvegarde chiffrée et restauration isolée des deux bases. Détails dans docs/VERIFICATION.md.
-
-Aucun effacement distant garanti, blocage universel des captures, valeur juridique automatique ou notification mobile universelle. Les clés restent dans le navigateur ; pas de sauvegarde automatique de ces clés dans ce prototype. Qualification sur téléphones physiques et accessibilité exhaustive à compléter. Les brouillons hors ligne restent en mémoire et leur renvoi est manuel.
-
-## Technologies et licences
-
-Matrix JS SDK 44.0.0 / Rust crypto WASM 18.9.0, Synapse 1.161.0, Keycloak 26.8.1, PostgreSQL 17.11, Caddy 2.10.2 et Node 22.22.3. Sources originales AGPL-3.0-or-later ; licences amont conservées dans THIRD_PARTY_NOTICES.md. Aucun CDN, fournisseur d’identité, email, SMS ou analytique externe. Téléchargements à l’installation ; services et PKI entièrement locaux à l’exécution.
-
-Le texte complet de la licence du projet est dans [LICENSE](LICENSE). Les composants tiers conservent leurs propres licences ; leur inventaire et leurs sources sont dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Les images Docker et les dépendances ne sont pas redistribuées dans ce dépôt.
-
-## Contribuer et signaler un problème
-
-Décrire le scénario, le résultat attendu et le résultat observé dans une issue. Pour proposer une correction, ouvrir une pull request avec les vérifications effectuées. Ne jamais publier de mot de passe, code TOTP, jeton, clé privée, sauvegarde ou message réel dans une issue ou une capture d’écran.
+Contribuer par issue ou pull request avec scénario, résultat attendu et vérifications effectuées. Ne publier aucun secret, code TOTP, clé, sauvegarde ou contenu réel.
