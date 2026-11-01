@@ -3439,6 +3439,31 @@ header .brand-logo-mark {
   }
 }
 
+@media (max-width: 760px) {
+  /* La liste mobile ne doit pas réserver toute la hauteur quand aucune room n'est ouverte. */
+  #app:not(.room-open) .shell {
+    display: block;
+    height: auto;
+    min-height: 0;
+  }
+  #app:not(.room-open) aside {
+    height: auto;
+    max-height: calc(100dvh - 79px);
+    overflow-y: auto;
+  }
+  #app:not(.room-open) .chat {
+    display: none;
+  }
+  #app.room-open .shell {
+    display: block;
+    height: calc(100dvh - 79px);
+  }
+  #app.room-open .chat {
+    display: flex;
+    min-height: 0;
+  }
+}
+
 /* Palette noire de l’assistant dans la barre latérale. */
 aside .assistant-card {
   border-color: #25282c;
