@@ -27,6 +27,21 @@ const monthName = (date: Date) =>
   new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(
     date,
   );
+const readTaskImage = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/"))
+      return reject(new Error("Choisissez une image valide."));
+    if (file.size > 2_500_000)
+      return reject(new Error("L’image doit faire 2,5 Mo maximum."));
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string")
+        reject(new Error("Lecture de l’image impossible."));
+      else resolve(reader.result);
+    };
+    reader.onerror = () => reject(new Error("Lecture de l’image impossible."));
+    reader.readAsDataURL(file);
+  });
 
 export async function openAgenda(options: {
   container: HTMLElement;
@@ -136,12 +151,59 @@ export async function openAgenda(options: {
     category.append(option);
   }
   categoryLabel.append(category);
+  const detailsLabel = make("label", "Description");
+  const details = make("textarea");
+  details.maxLength = 4000;
+  details.placeholder = "Ajoutez le contexte, le résultat attendu ou les étapes…";
+  detailsLabel.append(details);
+  const assigneeLabel = make("label", "Affecter à");
+  const assignee = make("select");
+  assignee.append(make("option", "Non assignée"));
+  const assignees = new Map<string, string>([
+    [options.userId, `Moi · ${options.userId}`],
+  ]);
+  for (const room of options.delegationRooms)
+    for (const member of room.members) assignees.set(member.id, member.name);
+  for (const [id, name] of assignees) {
+    const option = make("option", name);
+    option.value = id;
+    assignee.append(option);
+  }
+  assigneeLabel.append(assignee);
+  const imageLabel = make("label", "Image de la tâche");
+  const image = make("input");
+  image.type = "file";
+  image.accept = "image/jpeg,image/png,image/webp";
+  imageLabel.append(image);
+  const imagePreview = make("div", undefined, "agenda-image-preview");
+  imagePreview.hidden = true;
+  imageLabel.append(imagePreview);
+  image.onchange = () => {
+    const file = image.files?.[0];
+    if (!file) {
+      imagePreview.hidden = true;
+      imagePreview.replaceChildren();
+      return;
+    }
+    imagePreview.replaceChildren(make("span", `Image sélectionnée · ${file.name}`));
+    imagePreview.hidden = false;
+  };
   const submit = make("button", "Ajouter la tâche", "primary");
   submit.type = "submit";
   const cancel = make("button", "Annuler la modification");
   cancel.type = "button";
   cancel.hidden = true;
-  form.append(formTitle, titleLabel, dateLabel, categoryLabel, submit, cancel);
+  form.append(
+    formTitle,
+    titleLabel,
+    detailsLabel,
+    dateLabel,
+    categoryLabel,
+    assigneeLabel,
+    imageLabel,
+    submit,
+    cancel,
+  );
   const layout = make("div", undefined, "agenda-layout");
   const calendarCard = make("section", undefined, "agenda-calendar-card");
   const workspace = make("section", undefined, "agenda-workspace");
@@ -180,6 +242,11 @@ export async function openAgenda(options: {
     editing = null;
     form.reset();
     date.value = dayKey(new Date());
+    details.value = "";
+    assignee.value = "";
+    image.value = "";
+    imagePreview.hidden = true;
+    imagePreview.replaceChildren();
     formTitle.textContent = "Nouvelle tâche";
     submit.textContent = "Ajouter la tâche";
     cancel.hidden = true;
@@ -405,7 +472,7 @@ export async function openAgenda(options: {
       );
     });
     const filtered = tasks.filter((task) => {
-      if (filter === "mine" && task.assigneeId && task.assigneeId !== options.userId)
+      if (filter === "mine" && task.assigneeId !== options.userId)
         return false;
       if (filter === "priority" && task.category !== "Prioritaire") return false;
       return true;
@@ -483,6 +550,15 @@ export async function openAgenda(options: {
           title.value = task.title;
           date.value = task.date;
           category.value = task.category;
+          details.value = task.details || "";
+          assignee.value = task.assigneeId || "";
+          imagePreview.replaceChildren(
+            make(
+              "span",
+              task.imageName ? `Image actuelle · ${task.imageName}` : "Image actuelle",
+            ),
+          );
+          imagePreview.hidden = !task.imageData;
           formTitle.textContent = "Modifier la tâche";
           submit.textContent = "Enregistrer";
           cancel.hidden = false;
@@ -503,6 +579,12 @@ export async function openAgenda(options: {
           make("small", meta.join(" · ")),
         );
         if (task.details) card.append(make("p", task.details));
+        if (task.imageData) {
+          const preview = make("img", undefined, "agenda-task-image") as HTMLImageElement;
+          preview.src = task.imageData;
+          preview.alt = task.imageName || `Image de ${task.title}`;
+          card.append(preview);
+        }
         if (task.projectName)
           card.append(make("span", task.projectName, "agenda-kanban-project"));
         cards.append(card);
@@ -529,12 +611,33 @@ export async function openAgenda(options: {
     const existing = editing
       ? tasks.find((item) => item.id === editing)
       : undefined;
+    let imageData = existing?.imageData;
+    let imageName = existing?.imageName;
+    const selectedImage = image.files?.[0];
+    if (selectedImage) {
+      try {
+        imageData = await readTaskImage(selectedImage);
+        imageName = selectedImage.name;
+      } catch (error) {
+        state.textContent =
+          error instanceof Error ? error.message : "Image impossible à ajouter.";
+        return;
+      }
+    }
+    const selectedAssignee = assignee.value;
     const task: PersonalTask = {
       ...existing,
       id: editing || crypto.randomUUID(),
       title: name,
       date: date.value,
       category: category.value as PersonalTask["category"],
+      details: details.value.trim() || undefined,
+      imageData,
+      imageName,
+      assigneeId: selectedAssignee || undefined,
+      assigneeName: selectedAssignee
+        ? assignees.get(selectedAssignee)
+        : undefined,
       done: editing
         ? tasks.find((item) => item.id === editing)?.done || false
         : false,

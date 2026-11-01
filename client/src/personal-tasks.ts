@@ -14,6 +14,8 @@ export type PersonalTask = {
   projectName?: string;
   group?: string;
   details?: string;
+  imageData?: string;
+  imageName?: string;
   assigneeId?: string;
   assigneeName?: string;
   roomId?: string;
@@ -120,6 +122,14 @@ export async function loadPersonalTasks(
         TASK_CATEGORIES.includes(task.category) &&
         typeof task.done === "boolean" &&
         typeof task.updatedAt === "number" &&
+        (!task.details || typeof task.details === "string") &&
+        (!task.imageData ||
+          (typeof task.imageData === "string" &&
+            task.imageData.startsWith("data:image/") &&
+            task.imageData.length <= 4_000_000)) &&
+        (!task.imageName || typeof task.imageName === "string") &&
+        (!task.assigneeId || typeof task.assigneeId === "string") &&
+        (!task.assigneeName || typeof task.assigneeName === "string") &&
         (!task.status || ["todo", "doing", "review", "done"].includes(task.status)),
     );
   } finally {
