@@ -18,6 +18,7 @@ export type PersonalTask = {
   assigneeName?: string;
   roomId?: string;
   delegationStatus?: "draft" | "sent";
+  status?: "todo" | "doing" | "review" | "done";
 };
 
 export const TASK_CATEGORIES: PersonalTask["category"][] = [
@@ -118,7 +119,8 @@ export async function loadPersonalTasks(
         (task.date === "" || /^\d{4}-\d{2}-\d{2}$/.test(task.date)) &&
         TASK_CATEGORIES.includes(task.category) &&
         typeof task.done === "boolean" &&
-        typeof task.updatedAt === "number",
+        typeof task.updatedAt === "number" &&
+        (!task.status || ["todo", "doing", "review", "done"].includes(task.status)),
     );
   } finally {
     db.close();

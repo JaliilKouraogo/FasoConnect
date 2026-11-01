@@ -153,6 +153,7 @@ let activeCall:
       dialog: HTMLElement;
       localVideo: HTMLVideoElement;
       remoteVideo: HTMLVideoElement;
+      remoteScreenBadge: HTMLElement;
       screen?: MediaStream;
       notes: string;
       recognition?: any;
@@ -1288,6 +1289,13 @@ function callPanel(
   const screenBadge = node("span", "Écran partagé", "screen-badge");
   screenBadge.hidden = true;
   localTile.append(screenBadge);
+  const remoteScreenBadge = node(
+    "span",
+    "Écran partagé en direct",
+    "screen-badge remote-screen-badge",
+  );
+  remoteScreenBadge.hidden = true;
+  remoteTile.append(remoteScreenBadge);
   videos.append(remoteTile, localTile);
   p.append(
     callTop,
@@ -1314,6 +1322,12 @@ function callPanel(
       localVideo.srcObject = activeCall.local;
       screenBadge.hidden = true;
       p.classList.remove("screen-sharing");
+      void sendCallSignal(roomId, {
+        call_id: activeCall.id,
+        action: "screen",
+        media: activeCall.media,
+        sharing: false,
+      });
       return;
     }
     if (!navigator.mediaDevices.getDisplayMedia)
@@ -1336,6 +1350,12 @@ function callPanel(
     localVideo.srcObject = stream;
     screenBadge.hidden = false;
     p.classList.add("screen-sharing");
+    void sendCallSignal(roomId, {
+      call_id: activeCall.id,
+      action: "screen",
+      media: activeCall.media,
+      sharing: true,
+    });
     track.onended = () => {
       if (activeCall?.screen === stream) {
         void sender.replaceTrack(activeCall.local.getVideoTracks()[0] || null);
@@ -1344,6 +1364,12 @@ function callPanel(
         localVideo.srcObject = activeCall.local;
         screenBadge.hidden = true;
         p.classList.remove("screen-sharing");
+        void sendCallSignal(roomId, {
+          call_id: activeCall.id,
+          action: "screen",
+          media: activeCall.media,
+          sharing: false,
+        });
       }
     };
   });
@@ -1373,7 +1399,7 @@ function callPanel(
   chat.append(chatLog, chatForm);
   renderCallChat(chatLog);
   p.append(tools, chat, button("Raccrocher", onEnd, "danger"));
-  return { dialog: p, localVideo, remoteVideo };
+  return { dialog: p, localVideo, remoteVideo, remoteScreenBadge };
 }
 async function sendCallSignal(
   targetRoomId: string,
@@ -1411,6 +1437,12 @@ async function applyCallSignal(
     });
   } else if (signal.action === "ice") {
     await peerConnection.addIceCandidate(signal.candidate);
+  } else if (signal.action === "screen") {
+    activeCall.remoteScreenBadge.hidden = !signal.sharing;
+    activeCall.dialog.classList.toggle(
+      "remote-screen-sharing",
+      Boolean(signal.sharing),
+    );
   }
 }
 async function createCall(
@@ -1445,6 +1477,7 @@ async function createCall(
     dialog: ui.dialog,
     localVideo: ui.localVideo,
     remoteVideo: ui.remoteVideo,
+    remoteScreenBadge: ui.remoteScreenBadge,
     notes: "",
     noting: false,
   };

@@ -1,6 +1,13 @@
 export const CALL_EVENT = "bf.fasoconnect.call";
 
-const actions = new Set(["invite", "offer", "answer", "ice", "hangup"]);
+const actions = new Set([
+  "invite",
+  "offer",
+  "answer",
+  "ice",
+  "screen",
+  "hangup",
+]);
 
 export function validateCallSignal(content) {
   if (!content || typeof content !== "object") return false;
@@ -19,6 +26,7 @@ export function validateCallSignal(content) {
       typeof content.candidate.candidate === "string"
     );
   if (content.action === "invite" || content.action === "hangup") return true;
+  if (content.action === "screen") return typeof content.sharing === "boolean";
   return (
     content.description &&
     typeof content.description === "object" &&

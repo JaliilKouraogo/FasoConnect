@@ -960,14 +960,25 @@ form.composer {
   cursor: not-allowed;
   opacity: 0.55;
 }
-.call-panel {
-  width: min(900px, calc(100% - 32px));
-  padding: 22px;
-  border: 1px solid #dce8e7;
+.panel.call-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  padding: clamp(18px, 3vw, 38px);
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
   background:
-    radial-gradient(circle at 90% 0, #e1f4ef 0, transparent 30%),
-    #fbfdfd;
-  box-shadow: 0 24px 80px #173a3830, 0 0 0 100vmax #102d2b55;
+    radial-gradient(circle at 12% 0, #1d5b5c 0, transparent 32%),
+    radial-gradient(circle at 90% 100%, #133c45 0, transparent 35%),
+    #07191f;
+  box-shadow: none;
 }
 .call-top {
   display: flex;
@@ -987,7 +998,7 @@ form.composer {
   letter-spacing: 0.14em;
 }
 .call-title {
-  color: #1b3d3b;
+  color: #eefcf9;
   font-size: 20px;
   letter-spacing: -0.02em;
 }
@@ -995,8 +1006,8 @@ form.composer {
   padding: 7px 10px;
   border: 1px solid #cce8df;
   border-radius: 999px;
-  background: #effaf6;
-  color: #177261;
+  background: #1c706570;
+  color: #a9f5df;
   font-size: 11px;
   font-weight: 700;
 }
@@ -1004,13 +1015,14 @@ form.composer {
   display: grid;
   grid-template-columns: 1fr 180px;
   gap: 12px;
-  min-height: 390px;
-  margin: 0 0 16px;
+  flex: 1;
+  min-height: 0;
+  margin: 0 0 18px;
   padding: 8px;
   border: 1px solid #294c4e;
   border-radius: 18px;
   background: linear-gradient(145deg, #10282d, #1a3b3e);
-  box-shadow: inset 0 1px #ffffff12, 0 12px 30px #173d3d22;
+  box-shadow: inset 0 1px #ffffff12, 0 18px 50px #00000055;
 }
 .call-tile {
   position: relative;
@@ -1068,7 +1080,8 @@ form.composer {
   display: none;
 }
 .call-status {
-  color: #176b60 !important;
+  margin: 0 0 12px;
+  color: #a9c7c7 !important;
   font-weight: 600;
 }
 .call-tools {
@@ -1076,14 +1089,15 @@ form.composer {
   flex-wrap: wrap;
   gap: 8px;
   margin: 0 0 14px;
+  justify-content: center;
 }
 .call-tools button {
   min-height: 36px;
   padding: 8px 11px;
-  border: 1px solid #c9ded9;
+  border: 1px solid #ffffff22;
   border-radius: 8px;
-  background: #f7fbfa;
-  color: #176b60;
+  background: #ffffff10;
+  color: #e7faf6;
   font-size: 12px;
 }
 .call-chat {
@@ -1093,22 +1107,23 @@ form.composer {
   padding: 12px;
   border: 1px solid #dfeae7;
   border-radius: 10px;
-  background: #f8fbfa;
+  background: #ffffff0d;
+  color: #e7faf6;
 }
 .call-chat > strong {
-  color: #2b514b;
+  color: #d7f5ee;
   font-size: 13px;
 }
 .call-chat-log {
   max-height: 130px;
   overflow: auto;
   padding: 4px 8px;
-  background: #fff;
+  background: #06151bcc;
   border-radius: 7px;
 }
 .call-chat-log p {
   margin: 5px 0;
-  color: #49615e;
+  color: #bdd9d5;
   font-size: 12px;
   overflow-wrap: anywhere;
 }
@@ -1120,8 +1135,10 @@ form.composer {
   min-width: 0;
   flex: 1;
   padding: 9px 10px;
-  border: 1px solid #d7e4e1;
+  border: 1px solid #ffffff24;
   border-radius: 7px;
+  background: #ffffff0d;
+  color: #fff;
 }
 .call-chat-form button {
   padding: 8px 12px;
@@ -1129,12 +1146,31 @@ form.composer {
   background: #197c6d;
   color: #fff;
 }
+.call-panel > .panel-close {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 3;
+  margin: 0;
+  border: 1px solid #ffffff2b;
+  background: #ffffff12;
+  color: #fff;
+}
+.call-panel > h2 {
+  display: none;
+}
+.call-panel > .danger {
+  align-self: center;
+  min-width: 150px;
+  background: #b94b58;
+  color: #fff;
+}
 .incoming-call-panel {
   width: min(420px, calc(100% - 32px));
 }
 @media (max-width: 600px) {
-  .call-panel {
-    width: calc(100% - 20px);
+  .panel.call-panel {
+    width: 100vw;
     padding: 16px;
   }
   .call-title {
@@ -1153,9 +1189,17 @@ form.composer {
   .call-videos {
     grid-template-columns: 1fr;
     min-height: 330px;
+    flex: 1;
   }
   .call-tile-remote {
     min-height: 250px;
+  }
+  .remote-screen-badge {
+    animation: screen-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes screen-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 #5de0c266; }
+    50% { box-shadow: 0 0 0 6px #5de0c200; }
   }
   .call-tile-local {
     height: 120px;
@@ -2377,6 +2421,236 @@ aside .conversation,
 .agenda-task-actions button {
   padding: 6px 9px;
   font-size: 11px;
+}
+.agenda-board-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+.agenda-board-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #e1ebe9;
+  border-radius: 11px;
+  background: #eef4f3;
+}
+.agenda-board-filter {
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #718681;
+  font-size: 11px;
+  font-weight: 700;
+}
+.agenda-board-filter:hover {
+  background: #fff;
+  color: #326c62;
+}
+.agenda-board-filter.is-selected {
+  border-color: #d3e6e1;
+  background: #fff;
+  color: #147668;
+  box-shadow: 0 2px 6px #274f4814;
+}
+.agenda-board-progress {
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: #e6f4ef;
+  color: #287568;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.agenda-board-welcome {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  grid-column: 1 / -1;
+  min-height: 220px;
+  padding: 42px 24px;
+  border: 1px solid #dcebe7;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 0, #e1f6ef, transparent 48%),
+    #fbfdfc;
+  text-align: center;
+}
+.agenda-board-welcome-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 4px;
+  border-radius: 15px;
+  background: #dff3eb;
+  color: #16816e;
+  font-size: 24px;
+}
+.agenda-board-welcome strong {
+  color: #294d47;
+  font-size: 17px;
+}
+.agenda-board-welcome p {
+  max-width: 360px;
+  margin: 0;
+  color: #78918b;
+  font-size: 12px;
+}
+.agenda-kanban {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(210px, 1fr));
+  gap: 12px;
+  margin: 0 0 28px;
+  padding-bottom: 5px;
+  overflow-x: auto;
+}
+.agenda-kanban-column {
+  min-height: 310px;
+  padding: 10px;
+  border: 1px solid #e1ebe9;
+  border-radius: 14px;
+  background: #f7faf9;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.agenda-kanban-column.is-drag-over {
+  border-color: #45a494;
+  background: #eef9f5;
+  box-shadow: 0 0 0 3px #45a49422;
+}
+.agenda-kanban-column-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 3px 12px;
+}
+.agenda-kanban-column-title {
+  display: grid;
+  gap: 3px;
+}
+.agenda-kanban-column-title strong {
+  color: #294842;
+  font-size: 13px;
+}
+.agenda-kanban-column-title small {
+  color: #819792;
+  font-size: 10px;
+}
+.agenda-kanban-count {
+  display: grid;
+  place-items: center;
+  min-width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  background: #e4efec;
+  color: #33776c;
+  font-size: 11px;
+  font-weight: 800;
+}
+.status-doing .agenda-kanban-count {
+  background: #fff1d9;
+  color: #986a24;
+}
+.status-review .agenda-kanban-count {
+  background: #eee8fa;
+  color: #68518c;
+}
+.status-done .agenda-kanban-count {
+  background: #dff3e9;
+  color: #277453;
+}
+.agenda-kanban-cards {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  min-height: 245px;
+}
+.agenda-kanban-card {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid #e1eae8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 3px 10px #274f4820;
+  cursor: grab;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.agenda-kanban-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px #274f4828;
+}
+.agenda-kanban-card.is-dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+.agenda-kanban-card strong {
+  color: #263f3b;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.agenda-kanban-card small {
+  color: #78908b;
+  font-size: 10px;
+}
+.agenda-kanban-card p {
+  margin: 0;
+  color: #66807b;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.agenda-kanban-project {
+  width: fit-content;
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: #edf5f3;
+  color: #37796e;
+  font-size: 10px;
+  font-weight: 700;
+}
+.agenda-kanban-empty {
+  margin: auto;
+  padding: 35px 8px;
+  border: 1px dashed #cbdcd8;
+  border-radius: 9px;
+  color: #93a6a2 !important;
+  font-size: 11px !important;
+  text-align: center;
+}
+@media (max-width: 1050px) {
+  .agenda-kanban {
+    grid-template-columns: repeat(4, 235px);
+  }
+}
+@media (max-width: 600px) {
+  .agenda-board-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .agenda-board-filters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .agenda-board-filter {
+    padding: 8px 5px;
+    font-size: 10px;
+  }
+  .agenda-board-tools .agenda-board-progress {
+    align-self: flex-start;
+  }
+  .agenda-board-tools select {
+    width: 100%;
+  }
 }
 .agenda-form {
   display: grid;

@@ -91,6 +91,29 @@ export async function openAgenda(options: {
   const calendar = make("div", undefined, "agenda-grid");
   const listHeading = make("h3", "Tâches du mois");
   const list = make("div", undefined, "agenda-list");
+  const boardHeading = make("h2", "Tableau de suivi");
+  const boardTools = make("div", undefined, "agenda-board-tools");
+  const boardFilters = make("div", undefined, "agenda-board-filters");
+  boardFilters.setAttribute("aria-label", "Filtrer le tableau");
+  boardFilters.setAttribute("role", "group");
+  let boardFilterValue = "all";
+  for (const [value, label] of [
+    ["all", "Toutes les tâches"],
+    ["mine", "Mes tâches assignées"],
+    ["priority", "Prioritaires"],
+  ]) {
+    const filter = make("button", label, "agenda-board-filter");
+    filter.type = "button";
+    filter.dataset.filter = value;
+    filter.onclick = () => {
+      boardFilterValue = value;
+      renderBoard();
+    };
+    boardFilters.append(filter);
+  }
+  const boardProgress = make("span", "", "agenda-board-progress");
+  boardTools.append(boardFilters, boardProgress);
+  const board = make("div", undefined, "agenda-kanban");
   const form = make("form", undefined, "agenda-form");
   const formTitle = make("h3", "Nouvelle tâche");
   const titleLabel = make("label", "Tâche");
@@ -126,7 +149,17 @@ export async function openAgenda(options: {
   calendarCard.append(toolbar, calendar);
   workspace.append(listHeading, list, form);
   layout.append(calendarCard, workspace);
-  content.append(intro, notice, state, proposalHost, layout, projectBoard);
+  content.append(
+    intro,
+    notice,
+    state,
+    proposalHost,
+    boardHeading,
+    boardTools,
+    board,
+    layout,
+    projectBoard,
+  );
   p.append(header, content);
   options.container.replaceChildren(p);
   options.container.classList.add("agenda-host");
@@ -301,6 +334,7 @@ export async function openAgenda(options: {
       card.append(check, body, actions);
       list.append(card);
     }
+    renderBoard();
     projectBoard.replaceChildren();
     const projects = new Map<string, PersonalTask[]>();
     for (const task of tasks)
@@ -354,6 +388,131 @@ export async function openAgenda(options: {
       projectBoard.append(project);
     }
   };
+  const taskStatus = (task: PersonalTask): NonNullable<PersonalTask["status"]> =>
+    task.status || (task.done ? "done" : "todo");
+  const columns = [
+    ["todo", "À faire", "Définir et préparer"],
+    ["doing", "En cours", "Travail en cours"],
+    ["review", "À valider", "Contrôle ou retour attendu"],
+    ["done", "Terminées", "Travail clôturé"],
+  ] as const;
+  const renderBoard = () => {
+    const filter = boardFilterValue;
+    boardFilters.querySelectorAll("button").forEach((button) => {
+      button.classList.toggle(
+        "is-selected",
+        button.dataset.filter === boardFilterValue,
+      );
+    });
+    const filtered = tasks.filter((task) => {
+      if (filter === "mine" && task.assigneeId && task.assigneeId !== options.userId)
+        return false;
+      if (filter === "priority" && task.category !== "Prioritaire") return false;
+      return true;
+    });
+    const completed = tasks.filter((task) => taskStatus(task) === "done").length;
+    boardProgress.textContent = `${completed}/${tasks.length} terminées`;
+    board.replaceChildren();
+    if (!tasks.length) {
+      const empty = make("div", undefined, "agenda-board-welcome");
+      empty.append(
+        make("span", "✦", "agenda-board-welcome-icon"),
+        make("strong", "Votre espace de pilotage"),
+        make(
+          "p",
+          "Créez votre première tâche pour commencer à organiser votre travail.",
+        ),
+      );
+      board.append(empty);
+      return;
+    }
+    for (const [statusKey, label, hint] of columns) {
+      const column = make("section", undefined, `agenda-kanban-column status-${statusKey}`);
+      column.dataset.status = statusKey;
+      const entries = filtered.filter((task) => taskStatus(task) === statusKey);
+      const columnHeader = make("header", undefined, "agenda-kanban-column-header");
+      columnHeader.append(
+        make("div", undefined, "agenda-kanban-column-title"),
+        make("span", String(entries.length), "agenda-kanban-count"),
+      );
+      columnHeader.querySelector(".agenda-kanban-column-title")?.append(
+        make("strong", label),
+        make("small", hint),
+      );
+      const cards = make("div", undefined, "agenda-kanban-cards");
+      cards.dataset.status = statusKey;
+      cards.ondragover = (event) => {
+        event.preventDefault();
+        column.classList.add("is-drag-over");
+      };
+      cards.ondragleave = () => column.classList.remove("is-drag-over");
+      cards.ondrop = async (event) => {
+        event.preventDefault();
+        column.classList.remove("is-drag-over");
+        const id = event.dataTransfer?.getData("text/task-id");
+        if (!id) return;
+        const nextStatus = statusKey;
+        try {
+          await persist(
+            tasks.map((task) =>
+              task.id === id
+                ? {
+                    ...task,
+                    status: nextStatus,
+                    done: nextStatus === "done",
+                    updatedAt: Date.now(),
+                  }
+                : task,
+            ),
+          );
+        } catch {
+          state.textContent = "Déplacement impossible.";
+        }
+      };
+      for (const task of entries) {
+        const card = make("article", undefined, "agenda-kanban-card");
+        card.draggable = true;
+        card.dataset.taskId = task.id;
+        card.ondragstart = (event) => {
+          event.dataTransfer?.setData("text/task-id", task.id);
+          card.classList.add("is-dragging");
+        };
+        card.ondragend = () => card.classList.remove("is-dragging");
+        card.onclick = () => {
+          editing = task.id;
+          title.value = task.title;
+          date.value = task.date;
+          category.value = task.category;
+          formTitle.textContent = "Modifier la tâche";
+          submit.textContent = "Enregistrer";
+          cancel.hidden = false;
+          title.focus();
+        };
+        const meta = [
+          task.category,
+          task.date
+            ? new Intl.DateTimeFormat("fr-FR", {
+                day: "numeric",
+                month: "short",
+              }).format(new Date(task.date + "T12:00:00"))
+            : "Sans date",
+        ];
+        if (task.assigneeName) meta.push(task.assigneeName);
+        card.append(
+          make("strong", task.title),
+          make("small", meta.join(" · ")),
+        );
+        if (task.details) card.append(make("p", task.details));
+        if (task.projectName)
+          card.append(make("span", task.projectName, "agenda-kanban-project"));
+        cards.append(card);
+      }
+      if (!entries.length)
+        cards.append(make("p", "Déposez une tâche ici", "agenda-kanban-empty"));
+      column.append(columnHeader, cards);
+      board.append(column);
+    }
+  };
   previous.onclick = () => {
     month = new Date(month.getFullYear(), month.getMonth() - 1, 1);
     render();
@@ -380,6 +539,9 @@ export async function openAgenda(options: {
         ? tasks.find((item) => item.id === editing)?.done || false
         : false,
       updatedAt: Date.now(),
+      status: editing
+        ? existing?.status || (existing?.done ? "done" : "todo")
+        : "todo",
     };
     submit.disabled = true;
     try {
@@ -401,6 +563,8 @@ export async function openAgenda(options: {
       submit.disabled = false;
     }
   };
-  state.textContent = `${tasks.length} tâche${tasks.length > 1 ? "s" : ""} sur cet appareil.`;
+  state.textContent = tasks.length
+    ? `${tasks.length} tâche${tasks.length > 1 ? "s" : ""} enregistrée${tasks.length > 1 ? "s" : ""} sur cet appareil.`
+    : "Aucune tâche pour le moment · votre tableau est prêt.";
   render();
 }
