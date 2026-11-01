@@ -11,6 +11,8 @@ for (const name of await readdir("dist/assets")) {
 const assets = [
   "/service/",
   "/service/icon.svg",
+  "/service/logo-full.png",
+  "/service/logo-mark.png",
   "/service/manifest.webmanifest",
   ...(await readdir("dist/assets"))
     .filter((x) => /\.(js|css|wasm)$/.test(x))

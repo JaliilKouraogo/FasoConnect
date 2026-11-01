@@ -63,7 +63,7 @@ const quiet = {
   },
 };
 const root = document.getElementById("app")!;
-root.innerHTML = `<header><a class="brand" href="/service/" aria-label="FasoConnect, accueil"><span class="brand-mark">F</span><strong>FasoConnect<span class="brand-dot">.</span></strong></a><span class="header-caption">Messagerie</span><span class="security-badge">Échanges protégés</span></header><div id="status" role="status">Votre espace de messagerie sécurisé</div><div id="content"></div>`;
+root.innerHTML = `<header><a class="brand" href="/service/" aria-label="FasoConnect, accueil"><img class="brand-logo brand-logo-full" src="/service/logo-full.png" alt="FasoConnect"><img class="brand-logo brand-logo-mark" src="/service/logo-mark.png" alt="" aria-hidden="true"></a><span class="header-caption">Messagerie</span><span class="security-badge">Échanges protégés</span></header><div id="status" role="status">Votre espace de messagerie sécurisé</div><div id="content"></div>`;
 const $ = (id: string) => document.getElementById(id)!;
 const humanError = (e: any) =>
   e.httpStatus === 401

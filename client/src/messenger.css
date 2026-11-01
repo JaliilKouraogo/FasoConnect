@@ -3290,6 +3290,121 @@ aside .conversation,
   }
 }
 
+/* Brand assets and compact layout guardrails. */
+header .brand {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+header .brand-logo {
+  display: block;
+  flex: none;
+  object-fit: contain;
+}
+header .brand-logo-full {
+  width: min(185px, 30vw);
+  height: 40px;
+}
+header .brand-logo-mark {
+  display: none;
+  width: 36px;
+  height: 36px;
+}
+
+@media (max-width: 760px) {
+  header {
+    min-width: 0;
+    padding-inline: 12px;
+    gap: 8px;
+  }
+  header .brand-logo-full {
+    width: min(150px, 42vw);
+    height: 32px;
+  }
+  header .security-badge {
+    max-width: 118px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .shell {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  aside {
+    min-width: 0;
+    max-height: 34dvh;
+    overflow-y: auto;
+  }
+  .chat,
+  .messages,
+  .chat-header,
+  .composer {
+    min-width: 0;
+  }
+  .messages {
+    overflow-x: hidden;
+  }
+  .bubble {
+    max-width: min(86vw, 520px);
+    overflow-wrap: anywhere;
+  }
+  .chat-actions {
+    max-width: 100%;
+  }
+  .call-videos {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) 108px;
+    gap: 8px;
+  }
+  .call-tile-remote {
+    min-height: 0;
+  }
+  .call-tile-local {
+    width: 150px;
+    height: 100%;
+    min-height: 0;
+    justify-self: end;
+  }
+  .call-panel {
+    padding: 14px !important;
+  }
+  .call-chat-form {
+    min-width: 0;
+  }
+  .call-chat-form input {
+    width: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  header .brand-logo-full {
+    display: none;
+  }
+  header .brand-logo-mark {
+    display: block;
+  }
+  header .security-badge {
+    max-width: 108px;
+    font-size: 9px;
+  }
+  .call-top {
+    padding-right: 38px;
+  }
+  .call-live {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+  .call-tools {
+    justify-content: stretch;
+  }
+  .call-tools button {
+    flex: 1 1 30%;
+    min-width: 0;
+    padding-inline: 7px;
+    font-size: 10px;
+  }
+}
+
 /* Palette noire de l’assistant dans la barre latérale. */
 aside .assistant-card {
   border-color: #25282c;
