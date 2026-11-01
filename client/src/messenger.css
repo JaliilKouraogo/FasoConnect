@@ -3501,11 +3501,18 @@ aside .assistant-card .assistant-entry:hover:not(:disabled) {
 
 .landing-page {
   position: relative;
-  min-height: calc(100dvh - 90px);
+  min-height: 100dvh;
   overflow: hidden;
   background:
     radial-gradient(circle at 8% 12%, #dff3ec 0, transparent 30%),
     linear-gradient(135deg, #f8fbf9, #f2f6f5);
+}
+.landing-active > header,
+.landing-active > #status {
+  display: none;
+}
+.landing-active > #content {
+  min-height: 100dvh;
 }
 .landing-page .welcome-layout {
   position: relative;

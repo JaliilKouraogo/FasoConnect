@@ -2903,6 +2903,7 @@ function installHelp() {
   );
 }
 function welcome() {
+  root.classList.add("landing-active");
   $("content").innerHTML =
     `<main class="landing-page"><div class="landing-glow landing-glow-one" aria-hidden="true"></div><div class="landing-glow landing-glow-two" aria-hidden="true"></div><section class="welcome-layout"><section class="welcome-story"><div class="landing-brand"><img src="/service/logo-full.png" alt="FasoConnect"><span class="landing-secure"><span class="landing-secure-dot"></span> Espace sécurisé</span></div><div class="eyebrow">VOTRE ESPACE DE TRAVAIL</div><h1>Les bons échanges.<br><em>En toute confiance.</em></h1><p>Vos collègues, vos conversations et vos idées.<br>Réunis dans un espace simple et protégé.</p><div class="welcome-tags"><span>Messages privés</span><span>Dossiers chiffrés</span><span>Messages vocaux</span><span>Assistant IA local</span></div><div class="landing-points"><span><b>✓</b> Chiffrement de bout en bout</span><span><b>✓</b> Données conservées sous votre contrôle</span></div><div class="conversation-art" aria-hidden="true"><div class="art-top"><span class="art-avatar">A</span><div><b>Votre équipe</b><small>Une conversation qui avance.</small></div><span class="art-dot"></span></div><div class="art-message">Bonjour ! Le document est prêt pour notre réunion.</div><div class="art-message art-own">Parfait, merci. À tout à l’heure !<span>✓✓</span></div><div class="art-footer"><span>✦</span> Un peu d’aide, beaucoup de simplicité.</div></div><small class="welcome-signature">FasoConnect · Pensé pour vos échanges de service.</small></section><section class="login-card"><div class="login-brand"><img src="/service/logo-mark.png" alt="" aria-hidden="true"><div><strong>FasoConnect</strong><small>Messagerie de service</small></div></div><div class="eyebrow">HEUREUX DE VOUS RETROUVER</div><h2>Bienvenue chez vous.</h2><p>Connectez-vous pour retrouver votre équipe.</p><div id="welcome-action"></div><div class="login-steps"><span><b>1</b> Votre identifiant et votre mot de passe</span><span><b>2</b> Le code à 6 chiffres de votre téléphone</span></div><details class="login-help"><summary>Première connexion ?</summary><p>Votre administrateur vous remet votre accès. Après avoir choisi votre mot de passe, scannez le QR code affiché avec votre application d’authentification. Elle générera vos codes de connexion.</p><p>Un code ne fonctionne pas ? Vérifiez l’heure automatique du téléphone et attendez le code suivant.</p></details><small>Ce navigateur conserve les clés nécessaires à vos échanges. Utilisez votre appareil personnel et verrouillez votre session.</small></section></section></main>`;
   $("welcome-action").append(
@@ -2923,6 +2924,7 @@ async function main() {
     welcome();
     return;
   }
+  root.classList.remove("landing-active");
   if (!navigator.locks)
     throw new Error(
       "Utilisez un navigateur récent permettant le verrouillage sécurisé du stockage local.",
