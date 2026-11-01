@@ -558,6 +558,7 @@ form.composer {
     height: 54px;
     padding: 0 16px;
   }
+
   header .header-caption {
     display: none;
   }
@@ -963,6 +964,9 @@ form.composer {
 .panel.call-panel {
   position: fixed;
   inset: 0;
+  top: 0;
+  left: 0;
+  transform: none;
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -974,10 +978,7 @@ form.composer {
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background:
-    radial-gradient(circle at 12% 0, #1d5b5c 0, transparent 32%),
-    radial-gradient(circle at 90% 100%, #133c45 0, transparent 35%),
-    #07191f;
+  background: #050607;
   box-shadow: none;
 }
 .call-top {
@@ -1019,9 +1020,9 @@ form.composer {
   min-height: 0;
   margin: 0 0 18px;
   padding: 8px;
-  border: 1px solid #294c4e;
+  border: 1px solid #24282b;
   border-radius: 18px;
-  background: linear-gradient(145deg, #10282d, #1a3b3e);
+  background: #111416;
   box-shadow: inset 0 1px #ffffff12, 0 18px 50px #00000055;
 }
 .call-tile {
@@ -1029,7 +1030,7 @@ form.composer {
   min-height: 220px;
   overflow: hidden;
   border-radius: 13px;
-  background: #1c393d;
+  background: #191c1f;
 }
 .call-tile-remote {
   min-height: 370px;
@@ -1046,7 +1047,7 @@ form.composer {
   height: 100%;
   min-height: inherit;
   object-fit: cover;
-  background: #1c393d;
+  background: #191c1f;
 }
 .call-tile-remote video {
   object-fit: contain;
@@ -1070,7 +1071,7 @@ form.composer {
   top: 10px;
   right: 10px;
   bottom: auto;
-  background: #1b8574ee;
+  background: #171a1cee;
 }
 .call-panel.screen-sharing .call-tile-local {
   border-color: #5de0c2;
@@ -3287,4 +3288,29 @@ aside .conversation,
     padding: 8px;
     font-size: 11px;
   }
+}
+
+/* Palette noire de l’assistant dans la barre latérale. */
+aside .assistant-card {
+  border-color: #25282c;
+  background: linear-gradient(145deg, #111315, #08090a);
+  box-shadow: 0 7px 22px #00000018;
+}
+aside .assistant-card-eyebrow {
+  color: #aeb5ba;
+}
+aside .assistant-card h3 {
+  color: #f0f2f3;
+}
+aside .assistant-card p {
+  color: #9aa3a8;
+}
+aside .assistant-card .assistant-entry {
+  border-color: #303438;
+  background: #17191b;
+  color: #f5f6f7;
+}
+aside .assistant-card .assistant-entry:hover:not(:disabled) {
+  background: #25282b;
+  color: #fff;
 }
