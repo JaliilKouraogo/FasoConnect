@@ -3449,17 +3449,27 @@ header .brand-logo-mark {
   #app:not(.room-open) aside {
     height: auto;
     max-height: calc(100dvh - 79px);
+    min-height: 0;
+    background: #fff;
     overflow-y: auto;
   }
+  #app:not(.room-open) .shell {
+    background: #fff;
+  }
   #app:not(.room-open) .chat {
-    display: none;
+    display: none !important;
   }
   #app.room-open .shell {
     display: block;
     height: calc(100dvh - 79px);
+    min-height: 0;
+  }
+  #app.room-open aside {
+    display: none !important;
   }
   #app.room-open .chat {
-    display: flex;
+    display: flex !important;
+    width: 100%;
     min-height: 0;
   }
 }
