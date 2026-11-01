@@ -6,13 +6,14 @@ Prototype pour le sprint technique du Hackathon 226, édition 2026. Il permet à
 
 - **Instructions de service** : exécutants choisis, priorité, échéance, prise de connaissance distincte de l'exécution, travail en cours, soumission, validation ou reprise motivée par l'auteur responsable.
 - **Dossiers** : référence, titre, description, notes, documents et instructions regroupés dans une conversation. Les informations métier sont chiffrées ; les participants sont ceux de la conversation.
-- **Connexion instable et vocal** : brouillons par conversation en mémoire, nouvelle tentative manuelle avec transaction stable et contrôle des droits ; vocal avec préécoute locale, langue parlée choisie, deux minutes et 10 Mo maximum. L'interface reste française, sans traduction automatique.
+- **Connexion instable et vocal** : brouillons par conversation en mémoire, nouvelle tentative manuelle avec transaction stable et contrôle des droits ; un clic sur le micro du composeur démarre l'enregistrement, puis une barre intégrée permet d'arrêter, préécouter, supprimer ou envoyer le vocal chiffré. Deux minutes et 10 Mo maximum. L'interface reste française, sans traduction automatique.
+- **Assistant de travail personnel** : aide locale à la rédaction, au résumé et au suivi des actions, avec propositions adaptées au rôle de l'utilisateur. Aucun message n'est lu automatiquement : les extraits sont choisis et autorisés pour chaque demande, puis la réponse reste un brouillon à vérifier.
 
 ## Architecture et sécurité
 
 Le client TypeScript/Vite utilise Matrix JS SDK et Rust crypto pour Olm/Megolm. Synapse stocke les événements et fichiers chiffrés ; Keycloak assure l'enrôlement, le second facteur TOTP et les rôles. PostgreSQL, un service administratif Node.js et Caddy complètent l'instance Docker Compose. Aucun service tiers n'est indispensable à l'exécution ; images et dépendances sont téléchargées à l'installation.
 
-Les salons sont privés, sur invitation, et les appareils doivent être vérifiés avant envoi. La révocation coupe les identités et jetons, fige les anciens salons et crée des conversations de remplacement. L'administration ne possède pas les clés des messages. L'ancien assistant IA et son analyse d'extraits sont retirés de cette version ; son API renvoie HTTP 410 et Ollama n'est pas démarré par défaut.
+Les salons sont privés, sur invitation, et les appareils doivent être vérifiés avant envoi. La révocation coupe les identités et jetons, fige les anciens salons et crée des conversations de remplacement. L'administration ne possède pas les clés des messages. L'assistant utilise un modèle local facultatif, sans port public ; son installation est décrite dans [IA locale](docs/IA_LOCALE.md).
 
 ## Installation locale Windows
 
@@ -27,6 +28,8 @@ Le script configure les secrets hors du dépôt, construit et démarre les servi
 Messagerie : https://localhost/service/ ; administration : https://localhost/admin/. L'instance écoute sur cet ordinateur uniquement, ports HTTPS 443 et redirection HTTP 8088. `localhost` ne permet pas l'accès depuis un téléphone distant.
 
 Comptes fictifs : `agent.alpha`, `agent.beta`, `responsable.gamma`, `admin.delta`. Leurs mots de passe temporaires sont dans `.demo-activation.json`, dans le dossier privé indiqué par `local.settings.json`. Première connexion : nouveau mot de passe et TOTP. Aucun secret n'est livré dans le dépôt. Utiliser deux profils de navigateur pour les essais ; vérifier les appareils avant d'échanger. Redémarrage : `./Demarrer.ps1`.
+
+Pour une recette manuelle séparée des comptes historiques, lancer `python scripts/create_test_credentials.py`. Ce script crée `recette.responsable`, `recette.agent1`, `recette.agent2` et `recette.admin`, puis écrit leurs accès temporaires dans `identifiants-recette.md` dans le dossier privé. Il ne réinitialise aucun compte existant. Les deux agents et le responsable permettent de tester dossiers, instructions et vocaux ; l'administrateur sert aux essais de révocation.
 
 ## Vérifications
 

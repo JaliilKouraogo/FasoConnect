@@ -1,6 +1,6 @@
 # Assistant et agents IA locaux
 
-> Document historique. L'assistant n'est plus actif dans la version concours : les boutons sont retirés, l'API renvoie HTTP 410 sans traiter les extraits et Ollama n'est pas démarré par défaut. Installer le modèle ne réactive pas cette fonction. Les instructions suivantes concernent l'ancienne expérimentation et ne doivent pas être suivies pour tester la version concours.
+L'assistant dispose d'un chat dédié accessible depuis la barre latérale et l'accueil. Dans une conversation, le bouton IA ouvre aussi l'analyse ponctuelle des extraits choisis. Son moteur reste facultatif : sans modèle installé, la messagerie fonctionne et l'interface indique comment préparer l'IA locale.
 
 FasoConnect utilise **Ollama 0.40.11 et Qwen 3.5 2B**. Le moteur est un service Docker dédié, sans port publié, sur un réseau Docker `internal: true` distinct de celui de Matrix. `OLLAMA_NO_CLOUD=1` désactive les fonctions cloud. Le modèle est fixé côté serveur ; le navigateur ne choisit ni une adresse de fournisseur ni un modèle distant.
 
@@ -22,7 +22,11 @@ Une installation sans modèle laisse la messagerie opérationnelle ; le panneau 
 
 ## Utiliser les agents
 
-Après connexion dans la messagerie, cliquer **✦ Assistant IA**.
+Après connexion dans la messagerie, cliquer **Mon assistant de travail** pour ouvrir le chat IA, ou **Assistant IA** dans une conversation pour choisir des extraits à analyser. Le serveur détermine le profil à partir du compte connecté : agent, responsable ou administrateur. Les raccourcis et les consignes du modèle sont adaptés à ce rôle. Le chat conserve ses messages en mémoire dans l'onglet pendant la session ; seuls les quatre derniers échanges sont renvoyés au modèle pour garder le fil de la discussion. **Effacer le dialogue** supprime cette mémoire. Il n'existe pas de mémoire partagée entre utilisateurs ni d'historique IA conservé côté serveur.
+
+Dans le chat IA, **Fichier ou image** permet de joindre jusqu'à deux pièces à une demande : images JPG, PNG ou WebP (2 Mo chacune), PDF (5 Mo), ou documents TXT, MD, CSV et JSON (256 Ko). Le texte des PDF est extrait dans le navigateur, sur les douze premières pages au maximum, et l'extrait transmis est borné. Un PDF scanné sans texte lisible doit être fourni sous forme d'image. Les images sont transmises au modèle local grâce à sa capacité de vision. Les pièces choisies sont visibles avant l'envoi et peuvent être retirées ; elles ne sont pas ajoutées à l'historique du dialogue ni stockées par l'application.
+
+**Organiser en projet** utilise la description du projet, les derniers échanges du chat et les pièces choisies pour proposer un plan structuré en groupes de tâches. Ce plan s'ouvre dans l'agenda pour correction : titre, détails, date, groupe, conversation et personne chargée. L'IA ne crée ni échéance ni attribution certaine lorsque l'information manque. Tous les rôles peuvent enregistrer ce plan dans leur agenda local chiffré. La publication d'instructions chiffrées est proposée seulement à un responsable ou administrateur disposant aussi du niveau requis dans la conversation choisie ; chaque destinataire doit être un membre joint. L'utilisateur confirme explicitement le nombre de tâches et la conversation avant l'envoi. Les droits, les membres et la vérification des appareils sont recontrôlés au moment de chaque envoi ; en cas d'échec partiel, les tâches restantes ne sont pas envoyées automatiquement.
 
 | Agent | Usage |
 |---|---|
@@ -43,7 +47,7 @@ Les conversations restent chiffrées de bout en bout dans Matrix. L’utilisatio
 
 La demande saisie et les extraits ne sont enregistrés ni en base ni dans l’historique des conversations par le service IA. La journalisation Docker du moteur est désactivée. Les données restent temporairement en mémoire pendant le traitement ; le modèle peut rester chargé dix minutes après une demande pour accélérer la suivante. Cette absence d’enregistrement applicatif ne garantit pas un effacement physique de la mémoire ou du fichier d’échange du système. Le bouton d’effacement et la fermeture du panneau retirent le contenu affiché ; aucune clé cryptographique Matrix n’est remise au modèle.
 
-L’accès exige un jeton Matrix valide et un agent enrôlé. Pour des extraits, le serveur vérifie l’adhésion au salon et refuse les salons figés après révocation. Il recontrôle l’autorisation avant de retourner la réponse. L’accès à l’API Ollama brute n’est pas exposé par le proxy. Une demande est exécutée à la fois, au maximum quatre par utilisateur et par minute, avec un délai maximal de trois minutes. Une annulation coupe la requête d’inférence. Le premier chargement peut être long sur CPU ; les demandes suivantes sont plus rapides tant que le modèle reste chargé.
+L’accès exige un jeton Matrix valide, un compte actif et un rôle enrôlé vérifiés côté serveur. Le navigateur ne peut pas choisir son rôle pour l'IA. Pour des extraits, le serveur vérifie l’adhésion au salon et refuse les salons figés après révocation. Il recontrôle l’autorisation et le rôle avant de retourner la réponse. L’accès à l’API Ollama brute n’est pas exposé par le proxy. Une demande est exécutée à la fois, au maximum quatre par utilisateur et par minute, avec un délai maximal de trois minutes. Une annulation coupe la requête d’inférence. Le premier chargement peut être long sur CPU ; les demandes suivantes sont plus rapides tant que le modèle reste chargé.
 
 Les extraits sont présentés au modèle comme des données non fiables. Cela réduit les instructions malveillantes contenues dans un message sans garantir que le modèle les ignore toujours. L’absence d’outils et d’envoi autonome limite leur effet à la proposition visible.
 

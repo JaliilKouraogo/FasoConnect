@@ -9,7 +9,8 @@
   "dependencies": {
     "loglevel": "1.9.2",
     "matrix-encrypt-attachment": "1.0.3",
-    "matrix-js-sdk": "44.0.0"
+    "matrix-js-sdk": "44.0.0",
+    "pdfjs-dist": "6.5.438"
   },
   "devDependencies": {
     "prettier": "3.6.2",

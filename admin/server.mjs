@@ -5,6 +5,7 @@ import { Pool } from "pg";
 import * as oidc from "openid-client";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { revoke } from "./revocation.mjs";
+import { createAssistant, validateRequest } from "./assistant.mjs";
 
 const origin = "https://" + process.env.DOMAIN;
 const issuer = origin + "/auth/realms/fasoconnect";
@@ -30,6 +31,7 @@ const pool = new Pool({
   database: "synapse",
   password: process.env.POSTGRES_PASSWORD,
 });
+const assistant = createAssistant();
 const sessions = new Map();
 const pending = new Map();
 const running = new Set();
@@ -381,8 +383,88 @@ const server = http.createServer(async (req, res) => {
       );
     }
     if (path.startsWith("/assistant/api/")) {
-      // Version concours : aucun traitement d'extraits dechiffres cote serveur.
-      return send(res, 410, { error: "ASSISTANT_RETIRE_VERSION_CONCOURS" });
+      const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
+      if (!token) throw new HttpError(401, "CONNEXION_REQUISE");
+      const authorize = async (room) => {
+        const who = await matrix(
+          "GET",
+          "/_matrix/client/v3/account/whoami",
+          undefined,
+          token,
+        );
+        const username = who.user_id?.split(":")[0]?.slice(1);
+        if (!username) throw new HttpError(401, "SESSION_INVALIDE");
+        const account = await findUser(username);
+        if (!account.enabled) throw new HttpError(401, "COMPTE_REVOQUE");
+        const roles = await pool.query(
+          "SELECT role FROM faso_agent_roles WHERE user_id=$1",
+          [who.user_id],
+        );
+        const role = roles.rows[0]?.role;
+        if (!["agent", "responsable", "administrateur"].includes(role))
+          throw new HttpError(403, "AGENT_NON_ENROLE");
+        if (room) {
+          const frozen = await pool.query(
+            "SELECT 1 FROM faso_frozen_rooms WHERE room_id=$1",
+            [room],
+          );
+          if (frozen.rows.length)
+            throw new HttpError(403, "Utilisez la conversation renouvelée.");
+          const membership = await matrix(
+            "GET",
+            "/_matrix/client/v3/rooms/" +
+              enc(room) +
+              "/state/m.room.member/" +
+              enc(who.user_id),
+            undefined,
+            token,
+          );
+          if (membership.membership !== "join")
+            throw new HttpError(403, "CONVERSATION_NON_REJOINTE");
+        }
+        return {
+          userId: who.user_id,
+          role,
+          name: account.firstName || username,
+        };
+      };
+      const identity = await authorize();
+      if (path === "/assistant/api/status" && req.method === "GET")
+        return send(res, 200, {
+          ...(await assistant.status()),
+          profile: { role: identity.role, name: identity.name },
+        });
+      if (path === "/assistant/api/run" && req.method === "POST") {
+        if (
+          req.headers.origin !== origin ||
+          !req.headers["content-type"]?.startsWith("application/json")
+        )
+          throw new HttpError(403, "ORIGINE_INVALIDE");
+        const request = validateRequest(await body(req, 7 * 1024 * 1024));
+        await authorize(request.roomId);
+        const abort = new AbortController();
+        const cancel = () => abort.abort();
+        res.on("close", cancel);
+        try {
+          return send(
+            res,
+            200,
+            await assistant.run(
+              identity.userId,
+              { ...request, profile: { role: identity.role } },
+              abort.signal,
+              async () => {
+                const current = await authorize(request.roomId);
+                if (current.role !== identity.role)
+                  throw new HttpError(403, "PROFIL_MODIFIE");
+              },
+            ),
+          );
+        } finally {
+          res.off("close", cancel);
+        }
+      }
+      throw new HttpError(404, "INTROUVABLE");
     }
     if (path === "/directory") {
       const token = req.headers.authorization?.replace(/^Bearer /, "");

@@ -4,7 +4,7 @@
   "status": "pending_team_validation",
   "reviewer": null,
   "reviewedAt": null,
-  "note": "Catalogue de préparation. Les valeurs null ne sont pas des traductions et ne sont pas proposées comme interface mooré. La première version permet déjà les vocaux avec langue parlée choisie.",
+    "note": "Catalogue de préparation. Les valeurs null ne sont pas des traductions et ne sont pas proposées comme interface mooré. Le vocal s'enregistre directement depuis le composeur, sans choix de langue.",
   "strings": {
     "connect": { "fr": "Se connecter", "mos": null },
     "newMessage": { "fr": "Nouveau message", "mos": null },

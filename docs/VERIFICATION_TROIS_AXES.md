@@ -1,6 +1,6 @@
 # Vérification locale des trois axes — 1er novembre 2026
 
-Cette recette utilise deux comptes QA exclusivement fictifs et deux contextes Edge séparés via Playwright, avec autorisation de l'utilisateur. Aucun profil personnel ni compte de démonstration existant n'a été réinitialisé. Les captures ne contiennent ni mot de passe, ni code, ni secret TOTP.
+Cette recette utilise deux comptes QA exclusivement fictifs et deux contextes Edge séparés via Playwright, avec autorisation de l'utilisateur. Aucun profil personnel ni compte de démonstration existant n'a été réinitialisé. Les captures ne contiennent ni mot de passe, ni code, ni secret TOTP. Le parcours vocal ci-dessous décrit l'ancienne fenêtre avec choix de langue ; le nouveau composeur avec micro direct reste à vérifier sur navigateur et téléphone.
 
 ## Vérifications réussies
 
@@ -12,7 +12,7 @@ Cette recette utilise deux comptes QA exclusivement fictifs et deux contextes Ed
 6. **Coupure avant envoi — réussie.** Passage hors ligne, tentative refusée, brouillon conservé, retour en ligne, reprise explicitement demandée et une seule réception. La perte de réponse après acceptation serveur n'a pas été reproduite ici ; la stabilité de transaction et la réutilisation d'événement sont couvertes par les tests unitaires.
 7. **Vocal synthétique — réussi techniquement.** Microphone synthétique du navigateur, choix de langue, arrêt, préécoute locale, transfert, déchiffrement et lecteur audio chez le destinataire. Le signal n'est pas un enregistrement réel en mooré : aucune validation linguistique n'en découle.
 8. **Petite largeur — vérifiée à 390 × 844.** Aucun débordement horizontal de la page pendant ce scénario. Ce contrôle ne vaut pas qualification d'un téléphone physique ni audit d'accessibilité complet.
-9. **Ancienne API IA — retirée.** Une requête POST réelle vers `/assistant/api/run` reçoit HTTP 410. Les liens d'analyse IA sont retirés du client ; le service ne traite plus les extraits.
+9. **Ancienne API IA — retirée lors de cette recette.** Une requête POST réelle vers `/assistant/api/run` recevait HTTP 410. L'assistant local a depuis été réintroduit avec sélection explicite des extraits ; cette preuve historique ne qualifie pas la nouvelle interface IA.
 
 ## Code et construction
 

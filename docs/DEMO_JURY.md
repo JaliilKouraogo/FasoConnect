@@ -7,7 +7,7 @@
 3. Ajouter une note et un document au dossier ; vérifier leur réception et l'absence de contenu lisible en base et dans le stockage des médias.
 4. Responsable : ajouter une instruction dans le dossier et choisir les exécutants. Agent : accuser réception, commencer le travail, ajouter un commentaire et soumettre. Responsable : demander une reprise motivée, puis valider la nouvelle soumission. Vérifier que l'autre agent conserve son propre état.
 5. Préparer un texte, couper la connexion, tenter l'envoi puis revenir en ligne et réessayer explicitement. Vérifier l'absence de doublon et la conservation du brouillon au changement de conversation, sans rechargement.
-6. Enregistrer un vocal fictif dans une langue réellement maîtrisée par un membre de l'équipe ; sélectionner la langue parlée, arrêter, préécouter puis envoyer. Le destinataire déchiffre et écoute. Aucun bonus linguistique n'est revendiqué à partir de la seule étiquette de langue.
+6. Cliquer sur le micro dans le chat, enregistrer un vocal fictif, arrêter, préécouter puis envoyer. Vérifier aussi la suppression avant envoi. Le destinataire déchiffre et écoute. Le vocal ne constitue pas à lui seul une traduction ni une validation linguistique.
 7. Révoquer un agent pendant le groupe ; contrôler ses deux appareils et les nouveaux échanges dans le successeur. Aucun brouillon de l'ancien salon ne doit être transféré automatiquement.
 
 Les tests unitaires ne remplacent pas ce parcours navigateur. Vérifier aussi le microphone, le clavier et les petits écrans. L'interface reste française ; les traductions nationales ne sont pas encore validées. Les sections ci-dessous décrivent la recette historique, pas une preuve des nouvelles fonctions.

@@ -6,7 +6,7 @@ Le titre et la référence sensibles d'un dossier, ses notes, ses documents et l
 
 Les vocaux sont enregistrés et préécoutés localement, puis chiffrés avant transfert. Pas de transcription ni d'analyse serveur. Les brouillons et nouvelles tentatives restent en mémoire ; une reprise exige un nouveau contrôle des droits. Recharger ou quitter peut perdre ces brouillons. Aucun transfert automatique vers un salon renouvelé.
 
-L'ancienne extension IA décrite en fin de document n'est plus active dans la version concours : entrée client retirée, API HTTP 410 avant traitement du corps, Ollama hors du démarrage par défaut. Les preuves historiques de cette extension ne constituent pas une fonction de la version actuelle.
+L'assistant de travail local est à nouveau accessible sur demande. Il n'analyse que la demande saisie et les extraits cochés avec accord explicite. Son usage sort ces textes du chiffrement Matrix pour les traiter en mémoire sur le moteur IA local ; voir les limites détaillées plus bas.
 
 ## Protections
 
