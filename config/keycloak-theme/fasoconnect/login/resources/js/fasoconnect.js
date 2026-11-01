@@ -12,6 +12,14 @@ document.addEventListener("DOMContentLoaded", () => {
   if (otp) {
     const title = document.getElementById("kc-page-title");
     if (title) title.textContent = "Une dernière vérification.";
+    document
+      .querySelectorAll("[for='totp'], .pf-v5-c-form__label")
+      .forEach((element) => {
+        if (element.textContent?.toLowerCase().includes("téléphone"))
+          element.textContent = element.textContent
+            .replace(/ de votre téléphone/gi, "")
+            .replace(/sur votre téléphone/gi, "dans votre application");
+      });
     otp.setAttribute("inputmode", "numeric");
     otp.setAttribute("autocomplete", "one-time-code");
     otp.setAttribute(

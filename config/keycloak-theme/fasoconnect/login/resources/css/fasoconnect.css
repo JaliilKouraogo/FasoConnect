@@ -68,6 +68,19 @@ body {
   line-height: 1.55;
   text-align: center;
 }
+.pf-v5-c-login__main-header {
+  display: block;
+}
+.pf-v5-c-login__main-body {
+  min-width: 0;
+}
+.pf-v5-c-form {
+  display: grid;
+  gap: 18px;
+}
+.pf-v5-c-form__group {
+  margin-bottom: 0 !important;
+}
 .pf-v5-c-login__main-body {
   padding-left: 32px;
   padding-right: 32px;
@@ -136,6 +149,8 @@ body {
 #otp {
   letter-spacing: 0.25em;
   font-size: 24px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .faso-login-hint {
   padding: 14px 16px;
@@ -184,5 +199,29 @@ body {
   .pf-v5-c-login__main-header::after {
     font-size: 13px;
     margin-bottom: 20px;
+  }
+  .pf-v5-c-form {
+    gap: 15px;
+  }
+  .pf-v5-c-form-control,
+  .pf-v5-c-form-control input {
+    min-height: 52px;
+  }
+  #otp {
+    font-size: 23px;
+    letter-spacing: 0.2em;
+  }
+  .faso-login-hint {
+    margin-bottom: 4px;
+    padding: 12px 13px;
+    font-size: 13px;
+  }
+  #kc-totp-settings {
+    padding-left: 18px;
+    font-size: 13px;
+  }
+  #kc-totp-secret-qr-code {
+    width: min(100%, 220px);
+    height: auto;
   }
 }
