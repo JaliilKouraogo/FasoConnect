@@ -2547,23 +2547,30 @@ aside .conversation,
 .agenda-kanban-count {
   display: grid;
   place-items: center;
-  min-width: 23px;
-  height: 23px;
-  border-radius: 50%;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid #d5e6e1;
+  border-radius: 8px;
   background: #e4efec;
   color: #33776c;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 5px #274f4810;
 }
 .status-doing .agenda-kanban-count {
+  border-color: #f0dfbd;
   background: #fff1d9;
   color: #986a24;
 }
 .status-review .agenda-kanban-count {
+  border-color: #e1d8f1;
   background: #eee8fa;
   color: #68518c;
 }
 .status-done .agenda-kanban-count {
+  border-color: #cbe8d9;
   background: #dff3e9;
   color: #277453;
 }
