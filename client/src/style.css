@@ -5,6 +5,50 @@
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
 }
+.instruction-progress {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #cdd9cd;
+}
+.instruction-progress-row {
+  padding: 10px 0;
+}
+.instruction-progress-row > p {
+  margin: 4px 0 8px;
+}
+.instruction-progress-row button {
+  margin: 0 8px 8px 0;
+}
+.workflow-card {
+  margin: 12px 0;
+  padding: 16px;
+  border: 1px solid #cdd9cd;
+  border-radius: 12px;
+}
+.workflow-warning {
+  color: #7d3b13;
+}
+.panel .workflow-recipient {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.panel .workflow-recipient input {
+  width: 20px;
+  min-height: 20px;
+  margin: 0;
+}
+.instruction-progress details {
+  margin-top: 8px;
+}
+.panel audio,
+.bubble audio {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 12px 0;
+}
 * {
   box-sizing: border-box;
 }

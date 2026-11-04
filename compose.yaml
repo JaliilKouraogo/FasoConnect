@@ -43,8 +43,8 @@ services:
       test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3; read -r response <&3; [[ $$response == *' 200 '* ]]"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 40s
+      retries: 60
+      start_period: 180s
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://identity-db:5432/keycloak
@@ -76,7 +76,7 @@ services:
     networks: [backend]
   init:
     depends_on:
-      identity: {condition: service_started}
+      identity: {condition: service_healthy}
       db: {condition: service_healthy}
     image: ghcr.io/element-hq/synapse:v1.161.0
     entrypoint: [python, /bootstrap/init.py]
@@ -144,6 +144,7 @@ services:
     logging: *default-logging
     restart: unless-stopped
   ai:
+    profiles: [experimental-ai]
     image: ollama/ollama:0.40.11
     mem_limit: 5g
     environment:

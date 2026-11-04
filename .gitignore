@@ -4,6 +4,8 @@
 __pycache__/
 *.pyc
 .demo-activation.json
+identifiants-recette.json
+identifiants-recette.md
 
 local-ca.crt
 

@@ -1,4 +1,63 @@
 type Context = { text: string }[];
+type SharedTask = { title: string; date: string; category: string };
+const PROFILE_PRESETS = {
+  agent: [
+    [
+      "Préparer une réponse",
+      "redaction",
+      "Rédige une réponse professionnelle à partir de ma demande et des extraits que je choisirai.",
+    ],
+    [
+      "Comprendre une consigne",
+      "synthese",
+      "Résume les consignes sélectionnées : faits, décisions et questions ouvertes, avec leurs références.",
+    ],
+    [
+      "Organiser mes tâches",
+      "actions",
+      "Relève les actions qui me sont confiées et leurs échéances explicites, avec leurs références.",
+    ],
+  ],
+  responsable: [
+    [
+      "Rédiger une instruction",
+      "redaction",
+      "Propose une instruction de service claire : objectif, travail attendu, responsable et échéance seulement si ces éléments sont fournis.",
+    ],
+    [
+      "Synthèse d'équipe",
+      "synthese",
+      "Résume les retours sélectionnés : faits, décisions et points en attente, avec leurs références.",
+    ],
+    [
+      "Suivre les échéances",
+      "actions",
+      "Relève les actions, responsables et échéances explicitement mentionnés, avec leurs références.",
+    ],
+  ],
+  administrateur: [
+    [
+      "Aide aux accès",
+      "aide",
+      "Comment vérifier les appareils et gérer un accès perdu dans FasoConnect ?",
+    ],
+    [
+      "Rédiger une note",
+      "redaction",
+      "Aide-moi à rédiger une note claire à partir des éléments que je fournis, sans inventer de faits.",
+    ],
+    [
+      "Préparer une procédure",
+      "aide",
+      "Quelles sont les étapes de révocation et de renouvellement d'une conversation ?",
+    ],
+  ],
+} as const;
+const ROLE_LABELS = {
+  agent: "Agent",
+  responsable: "Responsable",
+  administrateur: "Administrateur",
+};
 export async function openAssistant(options: {
   token: string;
   roomId: string;
@@ -6,6 +65,7 @@ export async function openAssistant(options: {
   panel: (title: string) => HTMLElement;
   insertDraft: (answer: string) => void;
   locked: () => boolean;
+  task?: SharedTask;
 }) {
   const p = options.panel("Votre assistant"),
     abort = new AbortController();
@@ -16,15 +76,28 @@ export async function openAssistant(options: {
     if (text) n.textContent = text;
     return n;
   };
-  p.append(el("small", "Qwen 3.5 · Entièrement sur votre ordinateur"));
+  const hero = el("section");
+  hero.className = "assistant-hero";
+  hero.append(
+    el("small", "✦ IA locale · Qwen 3.5"),
+    el("h3", "Un assistant pour votre travail"),
+    el("p", "Des idées adaptées à votre rôle, toujours sous votre contrôle."),
+  );
+  p.append(hero);
   p.append(
     el(
       "p",
-      "Un coup de main pour écrire, résumer ou organiser la suite. Vous choisissez les messages à lui montrer ; ils sont analysés en clair sur cet ordinateur. Rien n’est envoyé à votre place.",
+      options.task
+        ? "Vous choisissez de montrer cette tâche à l’IA locale pour recevoir une suggestion de classement. L’agenda ne change pas automatiquement."
+        : "Vous choisissez les messages à lui montrer. Leur texte est traité en clair par le modèle local après votre accord ; aucune réponse n'est envoyée à vos collègues automatiquement.",
     ),
   );
   const state = el("p", "Vérification du modèle local…");
   state.setAttribute("role", "status");
+  const profile = el("p", "Chargement de votre profil…");
+  profile.className = "assistant-profile";
+  const presets = el("div");
+  presets.className = "assistant-presets";
   const agentLabel = el("label", "Que souhaitez-vous faire ?"),
     agent = el("select");
   agent.setAttribute("aria-label", "Agent IA local");
@@ -33,6 +106,7 @@ export async function openAssistant(options: {
     ["redaction", "Rédiger un message"],
     ["synthese", "Résumer les extraits"],
     ["actions", "Repérer les actions et échéances"],
+    ...(options.task ? [["organisation", "Classer une tâche"]] : []),
   ]) {
     const option = el("option", name);
     option.value = id;
@@ -54,6 +128,8 @@ export async function openAssistant(options: {
       "Résume les extraits sélectionnés : faits, décisions et questions ouvertes, avec leurs références.",
     actions:
       "Relève les actions, responsables et échéances explicitement mentionnés, avec leurs références.",
+    organisation:
+      "Propose une catégorie adaptée pour cette tâche. Si son titre est ambigu, pose-moi une question pour mieux la classer.",
   };
   prompt.value = examples.aide;
   agent.onchange = () => {
@@ -66,6 +142,7 @@ export async function openAssistant(options: {
       `${options.context.length} extraits disponibles · Choisir ce que l’IA peut lire`,
     );
   details.append(summary);
+  details.hidden = Boolean(options.task);
   const choices = options.context.map((excerpt) => {
     const row = el("label"),
       check = el("input");
@@ -75,7 +152,7 @@ export async function openAssistant(options: {
     details.append(row);
     return { check, text: excerpt.text };
   });
-  if (!choices.length)
+  if (!choices.length && !options.task)
     details.append(
       el(
         "p",
@@ -93,9 +170,25 @@ export async function openAssistant(options: {
       "J’autorise l’analyse locale des extraits cochés pour cette demande.",
     ),
   );
+  consentLabel.hidden = !choices.length;
+  const taskLabel = el("label"),
+    taskConsent = el("input");
+  taskConsent.type = "checkbox";
+  taskLabel.className = "ai-consent";
+  taskLabel.hidden = !options.task;
+  taskLabel.append(
+    taskConsent,
+    el(
+      "span",
+      options.task
+        ? `J’autorise l’IA locale à lire cette tâche : ${options.task.title} (${options.task.date}).`
+        : "",
+    ),
+  );
   const run = el("button", "Demander à l’agent"),
     cancel = el("button", "Annuler la demande"),
     result = el("div");
+  run.className = "primary assistant-run";
   run.disabled = true;
   cancel.hidden = true;
   result.setAttribute("role", "status");
@@ -104,14 +197,18 @@ export async function openAssistant(options: {
     result.replaceChildren();
     prompt.value = "";
     consent.checked = false;
+    taskConsent.checked = false;
     choices.forEach((x) => (x.check.checked = false));
   };
   p.append(
     state,
+    profile,
+    presets,
     agentLabel,
     label,
     details,
     consentLabel,
+    taskLabel,
     run,
     cancel,
     clear,
@@ -129,6 +226,28 @@ export async function openAssistant(options: {
     if (!response.ok)
       throw new Error("Session non autorisée. Reconnectez-vous à FasoConnect.");
     const info = await response.json();
+    const role = Object.hasOwn(PROFILE_PRESETS, info.profile?.role)
+      ? (info.profile.role as keyof typeof PROFILE_PRESETS)
+      : "agent";
+    profile.textContent = `${info.profile?.name || "Votre profil"} · ${ROLE_LABELS[role]}`;
+    for (const [title, mode, example] of PROFILE_PRESETS[role]) {
+      const choice = el("button", title);
+      choice.type = "button";
+      choice.onclick = () => {
+        agent.value = mode;
+        prompt.value = example;
+        prompt.focus();
+      };
+      presets.append(choice);
+    }
+    agent.value = PROFILE_PRESETS[role][0][1];
+    prompt.value = PROFILE_PRESETS[role][0][2];
+    if (options.task) {
+      agent.value = "organisation";
+      agent.disabled = true;
+      presets.hidden = true;
+      prompt.value = examples.organisation;
+    }
     if (!info.ready)
       throw new Error(
         "Modèle local absent ou moteur arrêté. Lancez Configurer-IA.ps1 dans le dossier du projet.",
@@ -148,9 +267,18 @@ export async function openAssistant(options: {
     const excerpts = choices
       .filter((x) => x.check.checked)
       .map(({ text }) => ({ text }));
+    if (["synthese", "actions"].includes(agent.value) && !excerpts.length) {
+      state.textContent =
+        "Sélectionnez d'abord des messages dans une conversation pour cette aide.";
+      return;
+    }
     if (excerpts.length && !consent.checked) {
       state.textContent =
         "Confirmez votre accord pour analyser les extraits cochés.";
+      return;
+    }
+    if (options.task && !taskConsent.checked) {
+      state.textContent = "Confirmez que l’IA locale peut lire cette tâche.";
       return;
     }
     if (options.locked()) {
@@ -158,6 +286,9 @@ export async function openAssistant(options: {
         "La session ou la conversation a changé. Rouvrez l’assistant.";
       return;
     }
+    const authorized = consent.checked || taskConsent.checked;
+    if (excerpts.length) consent.checked = false;
+    if (options.task) taskConsent.checked = false;
     active = new AbortController();
     run.disabled = true;
     clear.disabled = true;
@@ -174,8 +305,9 @@ export async function openAssistant(options: {
           agent: agent.value,
           prompt: prompt.value,
           excerpts,
-          consent: consent.checked,
+          consent: authorized,
           roomId: options.roomId,
+          ...(options.task ? { task: options.task } : {}),
         }),
       });
       const data = await response.json();
@@ -188,7 +320,9 @@ export async function openAssistant(options: {
         answer,
         el(
           "small",
-          "Réponse générée par IA : vérifiez les faits, destinataires et échéances avant de l’utiliser.",
+          options.task
+            ? "Suggestion de l’IA : vérifiez-la, puis modifiez vous-même la catégorie dans l’agenda."
+            : "Réponse générée par IA : vérifiez les faits, destinataires et échéances avant de l’utiliser.",
         ),
       );
       if (options.roomId) {

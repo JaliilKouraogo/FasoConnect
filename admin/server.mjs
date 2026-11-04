@@ -7,8 +7,6 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { revoke } from "./revocation.mjs";
 import { createAssistant, validateRequest } from "./assistant.mjs";
 
-const assistant = createAssistant();
-
 const origin = "https://" + process.env.DOMAIN;
 const issuer = origin + "/auth/realms/fasoconnect";
 const internal = "https://identity.localhost/auth/realms/fasoconnect";
@@ -33,6 +31,7 @@ const pool = new Pool({
   database: "synapse",
   password: process.env.POSTGRES_PASSWORD,
 });
+const assistant = createAssistant();
 const sessions = new Map();
 const pending = new Map();
 const running = new Set();
@@ -393,11 +392,17 @@ const server = http.createServer(async (req, res) => {
           undefined,
           token,
         );
-        const enrolled = await pool.query(
-          "SELECT 1 FROM faso_agent_roles WHERE user_id=$1",
+        const username = who.user_id?.split(":")[0]?.slice(1);
+        if (!username) throw new HttpError(401, "SESSION_INVALIDE");
+        const account = await findUser(username);
+        if (!account.enabled) throw new HttpError(401, "COMPTE_REVOQUE");
+        const roles = await pool.query(
+          "SELECT role FROM faso_agent_roles WHERE user_id=$1",
           [who.user_id],
         );
-        if (!enrolled.rows.length) throw new HttpError(403, "AGENT_NON_ENROLE");
+        const role = roles.rows[0]?.role;
+        if (!["agent", "responsable", "administrateur"].includes(role))
+          throw new HttpError(403, "AGENT_NON_ENROLE");
         if (room) {
           const frozen = await pool.query(
             "SELECT 1 FROM faso_frozen_rooms WHERE room_id=$1",
@@ -417,18 +422,25 @@ const server = http.createServer(async (req, res) => {
           if (membership.membership !== "join")
             throw new HttpError(403, "CONVERSATION_NON_REJOINTE");
         }
-        return who.user_id;
+        return {
+          userId: who.user_id,
+          role,
+          name: account.firstName || username,
+        };
       };
-      const user = await authorize();
+      const identity = await authorize();
       if (path === "/assistant/api/status" && req.method === "GET")
-        return send(res, 200, await assistant.status());
+        return send(res, 200, {
+          ...(await assistant.status()),
+          profile: { role: identity.role, name: identity.name },
+        });
       if (path === "/assistant/api/run" && req.method === "POST") {
         if (
           req.headers.origin !== origin ||
           !req.headers["content-type"]?.startsWith("application/json")
         )
           throw new HttpError(403, "ORIGINE_INVALIDE");
-        const request = validateRequest(await body(req, 64000));
+        const request = validateRequest(await body(req, 7 * 1024 * 1024));
         await authorize(request.roomId);
         const abort = new AbortController();
         const cancel = () => abort.abort();
@@ -437,8 +449,15 @@ const server = http.createServer(async (req, res) => {
           return send(
             res,
             200,
-            await assistant.run(user, request, abort.signal, () =>
-              authorize(request.roomId),
+            await assistant.run(
+              identity.userId,
+              { ...request, profile: { role: identity.role } },
+              abort.signal,
+              async () => {
+                const current = await authorize(request.roomId);
+                if (current.role !== identity.role)
+                  throw new HttpError(403, "PROFIL_MODIFIE");
+              },
             ),
           );
         } finally {

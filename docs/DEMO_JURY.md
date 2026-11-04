@@ -1,5 +1,17 @@
 # Recette et démonstration
 
+## Parcours de la version concours à qualifier
+
+1. Connecter un responsable et deux agents fictifs dans des profils séparés ; créer un groupe, accepter les invitations et vérifier les appareils.
+2. Responsable : Dossiers → Ouvrir un dossier, renseigner une référence et un titre fictifs. Agent : retrouver la carte du dossier et l'ouvrir.
+3. Ajouter une note et un document au dossier ; vérifier leur réception et l'absence de contenu lisible en base et dans le stockage des médias.
+4. Responsable : ajouter une instruction dans le dossier et choisir les exécutants. Agent : accuser réception, commencer le travail, ajouter un commentaire et soumettre. Responsable : demander une reprise motivée, puis valider la nouvelle soumission. Vérifier que l'autre agent conserve son propre état.
+5. Préparer un texte, couper la connexion, tenter l'envoi puis revenir en ligne et réessayer explicitement. Vérifier l'absence de doublon et la conservation du brouillon au changement de conversation, sans rechargement.
+6. Cliquer sur le micro dans le chat, enregistrer un vocal fictif, arrêter, préécouter puis envoyer. Vérifier aussi la suppression avant envoi. Le destinataire déchiffre et écoute. Le vocal ne constitue pas à lui seul une traduction ni une validation linguistique.
+7. Révoquer un agent pendant le groupe ; contrôler ses deux appareils et les nouveaux échanges dans le successeur. Aucun brouillon de l'ancien salon ne doit être transféré automatiquement.
+
+Les tests unitaires ne remplacent pas ce parcours navigateur. Vérifier aussi le microphone, le clavier et les petits écrans. L'interface reste française ; les traductions nationales ne sont pas encore validées. Les sections ci-dessous décrivent la recette historique, pas une preuve des nouvelles fonctions.
+
 Uniquement les comptes fictifs. Les fixtures privées sont dans le dossier indiqué par local.settings.json, jamais dans Git ni sur le Bureau. Les tests d’intégration révoquent réellement les comptes/appareils fictifs ciblés. Préparer de nouveaux appareils SSO avant de rejouer un moteur cryptographique en mémoire : ne pas réutiliser un ancien device_id sans son magasin de clés.
 
 ## Vérifications courantes

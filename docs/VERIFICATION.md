@@ -45,3 +45,12 @@ HTTPS approuvé ; activation du navigateur ; connexion TOTP ; annuaire ; invitat
 Identités et contenus exclusivement fictifs. Pas d’audit indépendant, SLA ou campagne exhaustive des courses réseau. Téléphones physiques, installation PWA par OS, accessibilité complète, ergonomie de récupération des clés et démarrage d’un clone complet restauré restent à qualifier. Le renvoi des brouillons hors ligne est manuel. La vérification mobile par navigateur a été interrompue par une indisponibilité de l’outil de contrôle ; elle n’est pas comptée comme preuve complète.
 
 Première version fonctionnelle de concours, aucune certification absolue. Métadonnées, menace du serveur JavaScript compromis et copies hors ligne décrites dans SECURITE.md.
+
+## Assistant personnel local — 1er novembre 2026
+
+- Construction du client TypeScript/Vite et 32 tests JavaScript réussis, dont le contrôle du profil injecté côté serveur et des extraits soumis à accord.
+- Service IA local accessible depuis le conteneur administratif ; `qwen3.5:2b` présent. La route publique `/assistant/api/status` sans session répond 401.
+- Trois sessions d'agent historiques ont été refusées avec 401. Une session de responsable active a reçu le profil `responsable` et l'état « modèle prêt ».
+- Une demande de rédaction entièrement fictive, sans extrait de conversation, a reçu HTTP 200 et une réponse du modèle en 17 secondes sur cette installation.
+- Une demande avec extrait sans accord a reçu HTTP 400 ; le même extrait avec un salon non autorisé a reçu HTTP 403 avant toute inférence.
+- Ces contrôles ne qualifient pas encore l'ergonomie du nouveau panneau dans un navigateur connecté, ni la qualité des réponses sur des dossiers réels.
